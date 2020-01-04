@@ -1,9 +1,11 @@
-package com.example.notification;
+package com.example.events;
 
 /**
- * Created by sunneo on 2018/7/30.
+ * 
+ * Interface to registry EventDelegate
+ *
+ * @param <T>
  */
-
 public interface INotification<T extends INotificationEventArgs> {
     void perform(Object from, T args);
 }

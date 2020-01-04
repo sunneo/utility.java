@@ -1,10 +1,10 @@
 package com.example.android;
 
-import com.example.android.IUiThreadRunner;
+import com.example.sharp.Delegates;
 
 public class UiThreadRunnerAdapter implements IUiThreadRunner {
-    @Override
-    public void runOnUiThread(Runnable r) {
-        r.run();
-    }
+	@Override
+	public void runOnUiThread(Delegates.Action r) {
+		r.Invoke();
+	}
 }
