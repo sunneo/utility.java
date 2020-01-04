@@ -1,13 +1,22 @@
-package com.example;
+package com.example.sharp.coroutine;
 
 import java.util.List;
 import java.util.Vector;
 
+import com.example.Locked;
 import com.example.sharp.Delegates.Action1;
 import com.example.sharp.Delegates.Action2;
 import com.example.sharp.Delegates.Action3;
-import com.example.sharp.coroutine.CancellationTokenSource;
+import com.example.sharp.coroutine.AsyncTask.ThisAction;
 
+/**
+ * parallels, usage:
+ * 
+ * <pre>
+ *  
+ * Parallelx.For(...)
+ * </pre>
+ */
 public class Parallelx {
 	public static enum ParallelForScheduler {
 		Blocked, Cyclic, RuntimeLoadBalance

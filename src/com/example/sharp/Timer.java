@@ -1,17 +1,23 @@
-package com.example;
+package com.example.sharp;
 
-import java.util.Timer;
 import java.util.TimerTask;
 
 import com.example.android.IUiThreadRunner;
 import com.example.events.EventDelegate;
 
 /**
- * Created by sunneo on 2018/8/5.
+ * TimerWrapper as System.Windows.Forms.Timer in C# usage:
+ * 
+ * <pre>
+ * TimerWrapper timer = new TimerWrapper();
+ * timer.Tick.addDelegate(() -> {
+ * 	// do something.
+ * });
+ * timer.start();
+ * </pre>
  */
-
-public class TimerWrapper {
-	private Timer mTimer;
+public class Timer {
+	private java.util.Timer mTimer;
 	private IUiThreadRunner mParent;
 	@SuppressWarnings("rawtypes")
 	EventDelegate ValueChanged = new EventDelegate();
@@ -26,7 +32,6 @@ public class TimerWrapper {
 		EnabledChanged.invoke(this, bEnabled);
 	}
 
-	@SuppressWarnings("unchecked")
 	protected void onValueChanged() {
 		boolean origEnabled = bEnabled;
 		mTimer.cancel();
@@ -37,8 +42,9 @@ public class TimerWrapper {
 	}
 
 	public synchronized void start() {
-		mTimer = new Timer();
+		mTimer = new java.util.Timer();
 		mTimer.schedule(new TimerTask() {
+			@SuppressWarnings("unchecked")
 			@Override
 			public void run() {
 				if (mParent != null) {
@@ -76,9 +82,9 @@ public class TimerWrapper {
 		}
 	}
 
-	public TimerWrapper(IUiThreadRunner activity) {
+	public Timer(IUiThreadRunner activity) {
 		this.mParent = activity;
-		this.mTimer = new Timer();
+		this.mTimer = new java.util.Timer();
 	}
 
 	@SuppressWarnings("rawtypes")
