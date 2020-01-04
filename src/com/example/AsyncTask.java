@@ -4,8 +4,8 @@ import java.util.Hashtable;
 import java.util.LinkedList;
 
 import com.example.android.IUiThreadRunner;
-import com.example.csharp.StringUtility;
 import com.example.sharp.Delegates;
+import com.example.sharp.StringUtility;
 
 public class AsyncTask {
 	public static interface ThisAction extends Delegates.Action1<AsyncTask>, Delegates.Action {

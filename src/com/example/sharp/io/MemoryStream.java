@@ -4,7 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 
-import com.example.csharp.IDisposable;
+import com.example.sharp.IDisposable;
 
 public class MemoryStream extends InputStream implements IDisposable, ISeekableStream {
 	private byte[] buffer;

@@ -1,4 +1,4 @@
-package com.example.csharp;
+package com.example.sharp;
 
 public interface IDisposable {
 	void dispose();
