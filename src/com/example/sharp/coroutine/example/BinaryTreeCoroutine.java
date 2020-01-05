@@ -30,9 +30,6 @@ public class BinaryTreeCoroutine {
 				cor.addInstruction((pthis) -> {
 					traverseCoroutine(pthis, node.right);
 				});
-				cor.addInstruction((pthis) -> {
-					pthis.pop();
-				});
 
 				cor.start();
 				return cor;
@@ -73,7 +70,7 @@ public class BinaryTreeCoroutine {
 
 	public static void main(String[] argv) {
 		Tree<Integer, Integer> tree = new Tree<Integer, Integer>((o1, o2) -> o1.compareTo(o2));
-		int[] seq = new int[] { 3, 1, 2, 5, 4, 8, 6, 7, 10, 9, 0 };
+		int[] seq = new int[] { 3, 1, 2, 5, 4, 8, 6, 7, 10, 9, 0, 42, 27, -50, -1024 };
 		for (int i = 0; i < seq.length; ++i) {
 			tree.set(seq[i], i);
 		}

@@ -73,7 +73,7 @@ public class Coroutine {
 		return next;
 	}
 
-	public void pop() {
+	private void pop() {
 		if (this.parent != null) {
 			this.parent.next = null;
 		}
@@ -183,11 +183,13 @@ public class Coroutine {
 	 */
 	@SuppressWarnings("unchecked")
 	public <T> T getYieldValue() {
-		if (next != null) {
-			return (T) next.getYieldValue();
+		Coroutine selection = this;
+		while (selection.next != null && !selection.next.isStopped()) {
+			selection = selection.next;
 		}
-		T ret = (T) this.yieldValue;
-		this.yieldValue = null;
+		T ret = (T) selection.yieldValue;
+		selection.yieldValue = null;
+
 		return ret;
 	}
 
@@ -215,6 +217,11 @@ public class Coroutine {
 	 */
 	public void start() {
 		this.state = State.Run;
+		if (this.parent != null) {
+			this.addInstruction((pthis) -> {
+				pthis.pop();
+			});
+		}
 	}
 
 	/**
@@ -245,7 +252,7 @@ public class Coroutine {
 	 * 
 	 * @return true if it can continue, or false when stopped/suspend
 	 */
-	boolean exec_cur() {
+	boolean execCurrent() {
 		if (state == State.Suspend) {
 			state = State.Run;
 		}
@@ -265,12 +272,15 @@ public class Coroutine {
 	}
 
 	public boolean exec() {
-		if (next != null && !next.isStopped()) {
-			return next.exec();
-		} else {
-			next = null;
-			return exec_cur();
+		Coroutine selection = this;
+		while (selection.next != null && !selection.next.isStopped()) {
+			selection = selection.next;
 		}
+		return selection.execCurrent();
+	}
+
+	boolean currentIsStopped() {
+		return state == State.Stop || ip == instructions.size();
 	}
 
 	/**
@@ -279,10 +289,17 @@ public class Coroutine {
 	 * @return true if stopped
 	 */
 	public boolean isStopped() {
-		if (this.next != null) {
-			return next.isStopped();
+		Coroutine selection = this;
+		while (selection.next != null) {
+			selection = selection.next;
 		}
-		return this.state == State.Stop || ip == instructions.size();
+		if (selection != this) {
+			if (!selection.currentIsStopped()) {
+				return false;
+			}
+		}
+		return currentIsStopped();
+
 	}
 
 	/**
@@ -291,10 +308,11 @@ public class Coroutine {
 	 * @return true if stopped
 	 */
 	public boolean isYield() {
-		if (this.next != null) {
-			return next.isYield();
+		Coroutine selection = this;
+		while (selection.next != null) {
+			selection = selection.next;
 		}
-		return this.state == State.Suspend;
+		return selection.state == State.Suspend;
 	}
 
 	public String toString() {
