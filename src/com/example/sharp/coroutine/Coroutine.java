@@ -4,6 +4,7 @@ import java.util.Hashtable;
 import java.util.Vector;
 
 import com.example.sharp.Delegates.Action1;
+import com.example.sharp.StringUtility;
 
 /**
  * coroutine which contains instructions and provide yield operation, see
@@ -19,6 +20,17 @@ public class Coroutine {
 	public Vector<Action1<Coroutine>> instructions = new Vector<Action1<Coroutine>>();
 	public Hashtable<String, Object> globals = new Hashtable<String, Object>();
 	public Hashtable<String, Integer> labels = new Hashtable<String, Integer>();
+	static long seriesId = Long.MIN_VALUE;
+	long Id = seriesId++;
+	String name;
+
+	public long getId() {
+		return Id;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
 
 	Object yieldValue;
 	int ip;
@@ -36,6 +48,40 @@ public class Coroutine {
 	public Coroutine(Action1<Coroutine> r) {
 		r.Invoke(this);
 	}
+
+	public Coroutine push(Action1<Coroutine> r) {
+		next = new Coroutine(r);
+		next.parent = this;
+		return next;
+	}
+
+	public Coroutine push(String name, Action1<Coroutine> r) {
+		Coroutine ret = push(r);
+		ret.setName(name);
+		return ret;
+	}
+
+	public Coroutine push(String name) {
+		Coroutine ret = push();
+		ret.setName(name);
+		return ret;
+	}
+
+	public Coroutine push() {
+		next = new Coroutine();
+		next.parent = this;
+		return next;
+	}
+
+	public void pop() {
+		if (this.parent != null) {
+			this.parent.next = null;
+		}
+		this.next = null;
+	}
+
+	Coroutine next;
+	Coroutine parent;
 
 	/**
 	 * clear all context
@@ -137,7 +183,12 @@ public class Coroutine {
 	 */
 	@SuppressWarnings("unchecked")
 	public <T> T getYieldValue() {
-		return (T) this.yieldValue;
+		if (next != null) {
+			return (T) next.getYieldValue();
+		}
+		T ret = (T) this.yieldValue;
+		this.yieldValue = null;
+		return ret;
 	}
 
 	/**
@@ -194,7 +245,7 @@ public class Coroutine {
 	 * 
 	 * @return true if it can continue, or false when stopped/suspend
 	 */
-	public boolean exec() {
+	boolean exec_cur() {
 		if (state == State.Suspend) {
 			state = State.Run;
 		}
@@ -213,13 +264,25 @@ public class Coroutine {
 		return false;
 	}
 
+	public boolean exec() {
+		if (next != null && !next.isStopped()) {
+			return next.exec();
+		} else {
+			next = null;
+			return exec_cur();
+		}
+	}
+
 	/**
 	 * test if stopped
 	 * 
 	 * @return true if stopped
 	 */
 	public boolean isStopped() {
-		return this.state == State.Stop;
+		if (this.next != null) {
+			return next.isStopped();
+		}
+		return this.state == State.Stop || ip == instructions.size();
 	}
 
 	/**
@@ -228,6 +291,16 @@ public class Coroutine {
 	 * @return true if stopped
 	 */
 	public boolean isYield() {
+		if (this.next != null) {
+			return next.isYield();
+		}
 		return this.state == State.Suspend;
+	}
+
+	public String toString() {
+		if (!StringUtility.IsNullOrEmpty(name)) {
+			return name;
+		}
+		return "Coroutine-" + String.valueOf(Id);
 	}
 }
