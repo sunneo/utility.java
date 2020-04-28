@@ -9,22 +9,22 @@ import com.example.events.Var;
  */
 public class Property<T extends Object> extends Var<T> implements IProperty<T> {
 
-	@Override
-	public T get() {
-		return super.get();
-	}
+    @Override
+    public T get() {
+        return super.get();
+    }
 
-	@Override
-	public void set(T value) {
-		super.set(value);
-	}
+    @Override
+    public void set(T value) {
+        super.set(value);
+    }
 
-	public Property(T value) {
-		super(value);
-	}
+    public Property(T value) {
+        super(value);
+    }
 
-	public Property() {
+    public Property() {
 
-	}
+    }
 
 }

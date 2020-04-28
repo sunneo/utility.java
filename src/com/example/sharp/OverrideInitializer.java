@@ -13,10 +13,10 @@ package com.example.sharp;
  *    }
  * });
  * </code>
- * 
+ *
  */
 public class OverrideInitializer {
-	public OverrideInitializer(IOverride override) {
-		override.override();
-	}
+    public OverrideInitializer(IOverride override) {
+        override.override();
+    }
 }
