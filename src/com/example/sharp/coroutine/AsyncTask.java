@@ -4,8 +4,8 @@ import java.util.Hashtable;
 import java.util.LinkedList;
 
 import com.example.android.IUiThreadRunner;
+import com.example.sharp.CString;
 import com.example.sharp.Delegates;
-import com.example.sharp.StringUtility;
 
 public class AsyncTask {
 	public static interface ThisAction extends Delegates.Action1<AsyncTask>, Delegates.Action {
@@ -130,7 +130,7 @@ public class AsyncTask {
 					bgthread = null;
 				}
 			});
-			if (!StringUtility.IsNullOrEmpty(mName)) {
+			if (!CString.IsNullOrEmpty(mName)) {
 				bgthread.setName(mName);
 			} else {
 				bgthread.setName("AsyncThread");
@@ -197,7 +197,7 @@ public class AsyncTask {
 					runner();
 				}
 			});
-			if (!StringUtility.IsNullOrEmpty(mName)) {
+			if (!CString.IsNullOrEmpty(mName)) {
 				bgthread.setName(mName);
 			} else {
 				bgthread.setName("AsyncThread");

@@ -3,14 +3,9 @@ package com.example.events;
 
 import java.util.Vector;
 
-import com.example.events.INotificationEventArgs.INotificationEventArg1;
-import com.example.events.INotificationEventArgs.INotificationEventArg2;
-import com.example.events.INotificationEventArgs.INotificationEventArg3;
-import com.example.events.INotificationEventArgs.INotificationEventArg4;
-import com.example.events.INotificationEventArgs.INotificationEventArg5;
-import com.example.events.INotificationEventArgs.INotificationEventArg6;
-import com.example.events.INotificationEventArgs.INotificationEventArg7;
-import com.example.events.INotificationEventArgs.INotificationEventArg8;
+import com.example.sharp.Delegates;
+import com.example.sharp.Tracer;
+
 
 /**
  * EventDelegate for implementing observer pattern. event delegate provides add,
@@ -21,7 +16,14 @@ import com.example.events.INotificationEventArgs.INotificationEventArg8;
 @SuppressWarnings("rawtypes")
 public class EventDelegate<T extends INotification> {
     Vector<T> invocationList = new Vector<>();
-
+    EventDelegate me;
+    public EventDelegate(){
+    	me = this;
+    }
+    boolean invoking=false;
+    public void resetInvoking() {
+    	invoking=false;
+    }
 	/**
 	 * test whether no listener
 	 * 
@@ -77,11 +79,21 @@ public class EventDelegate<T extends INotification> {
 	 */
 	@SuppressWarnings("unchecked")
 	public void invoke(Object sender, INotificationEventArgs args) {
+		if(invoking) {
+			// prevent recursive
+			return;
+		}
+		invoking=true;
         Vector<T> clone = getInvocationList();
-        for(int i=0; i<clone.size(); ++i){
-            T t = clone.get(i);
-            t.perform(sender,args);
-        }
+    	try {
+	        for(int i=0; i<clone.size(); ++i){	        
+	            T t = clone.get(i);
+	            t.perform(sender,args);
+	        }
+    	}catch(Exception ee) {
+    		Tracer.D(ee);
+    	}
+    	invoking=false;
     }
 	/**
 	 * broadcast/notify/trigger all registered EventHandler.
@@ -118,4 +130,43 @@ public class EventDelegate<T extends INotification> {
     public <T1,T2,T3,T4,T5,T6,T7,T8> void invoke(Object sender, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5 , T6 arg6, T7 arg7, T8 arg8) {
         this.invoke(sender, new INotificationEventArgs.INotificationEventArg8<T1,T2,T3,T4,T5,T6,T7,T8>(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8));
     }
+    
+    Delegates.Action onDisposed=null;
+    
+    public void dispose() {
+    	if(onDisposed!=null) {
+    		try {
+    		   onDisposed.Invoke();
+    		   onDisposed=null;
+    		}catch(Exception ee) {
+    			Tracer.D(ee);
+    		}
+    	}
+    }
+    /**
+     * Hook/route event handler
+     * @return
+     */
+	@SuppressWarnings("unchecked")
+	public EventDelegate<T> route(){
+		
+		final EventDelegate<T> ret = new EventDelegate<T>();
+		final T notification = (T) new INotification() {
+
+			@Override
+			public void perform(Object from, INotificationEventArgs args) {
+				ret.invoke(from, args);
+			}
+			
+		};
+		ret.onDisposed=new Delegates.Action() {
+			
+			@Override
+			public void Invoke() {
+				me.removeDelegate(notification);
+			}
+		};
+		this.addDelegate(notification);
+		return ret;
+	}
 }

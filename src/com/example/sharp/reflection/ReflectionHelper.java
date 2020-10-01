@@ -13,4 +13,10 @@ public class ReflectionHelper {
         this.methods = new MethodCollector(this.targetObject, clz);
         this.fields = new FieldCollector(this.targetObject, clz);
     }
+    public ReflectionHelper(Class<?> clz) {
+        this.targetObject = null;
+        this.clz = clz;
+        this.methods = new MethodCollector(this.targetObject, clz);
+        this.fields = new FieldCollector(this.targetObject, clz);
+    }
 }

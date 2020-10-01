@@ -3,8 +3,9 @@ package com.example.sharp.coroutine;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import com.example.sharp.CString;
 import com.example.sharp.Delegates.Action1;
-import com.example.sharp.StringUtility;
+
 
 /**
  * coroutine which contains instructions and provide yield operation, see
@@ -316,7 +317,7 @@ public class Coroutine {
 	}
 
 	public String toString() {
-		if (!StringUtility.IsNullOrEmpty(name)) {
+		if (!CString.IsNullOrEmpty(name)) {
 			return name;
 		}
 		return "Coroutine-" + String.valueOf(Id);
