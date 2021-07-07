@@ -29,7 +29,7 @@ public class CString {
 		for(int i=0; i<pairs.length; i+=2) {
 			int item1=pairs[i];
 			int item2=pairs[i+1];
-			tuples[i/2] = new Tuples.Tuple2<Integer,Integer>(item1,item2);
+			tuples[i/2] = Tuples.tuple(item1,item2);
 		}
 		return Extract(source,(Tuples.Tuple2<Integer, Integer>[])tuples);
 	}

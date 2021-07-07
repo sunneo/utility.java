@@ -15,4 +15,8 @@ public class Util {
 		
 		return ret;
 	}
+	@SuppressWarnings("unchecked")
+	public static <T> T[] list(T... args) {
+		return args;
+	}
 }

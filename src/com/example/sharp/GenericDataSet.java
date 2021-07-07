@@ -1,21 +1,49 @@
 package com.example.sharp;
 
+import java.util.Map;
 
+
+/**
+ * a storage for arbitrary data. 
+ *
+ */
 public class GenericDataSet {
 	Dictionary<String,Object> dataSet = new Dictionary<String, Object>();
-	
+	final static Object nullInstance=new Object();
 	public GenericDataSet() {
 		
 	}
+	public void clear() {
+		dataSet.Clear();
+	}
+	
 	/**
 	 * initialize GenericDataSet
 	 * @param items list of [key0],[value1],[key1],[value1],[key2],[value2]...
 	 */
 	public GenericDataSet(Object... items) {
+		addAll(items);
+	}
+	/**
+	 * add all from items in key,value order
+	 * @param items list of [key0],[value1],[key1],[value1],[key2],[value2]...
+	 */
+	public void addAll(Object... items) {
 		for(int i=0; i<items.length; i+=2) {
 			String key = (String)items[i];
 			Object value = items[i+1];
 			set(key,value);
+		}
+	}
+	/**
+	 * add all from items in key,value order
+	 * @param items list of <[key0],[value1]>,<[key1],[value1]>,<[key2],[value2]>...
+	 */
+	@SuppressWarnings("unchecked")
+	public void addAll(KeyValuePair<String,Object>... items) {
+		for(int i=0; i<items.length; ++i) {
+			KeyValuePair<String,Object> item = items[i];
+			set(item.Key,item.Value);
 		}
 	}
 	/**
@@ -24,10 +52,7 @@ public class GenericDataSet {
 	 */
 	@SafeVarargs
 	public GenericDataSet(KeyValuePair<String,Object>... items) {
-		for(int i=0; i<items.length; ++i) {
-			KeyValuePair<String,Object> item = items[i];
-			set(item.Key,item.Value);
-		}
+		addAll(items);
 	}
 	
 	/**
@@ -37,7 +62,13 @@ public class GenericDataSet {
 	 * @param value
 	 */
 	public <T> void set(String key,T value) {
-		dataSet.set(key, value);
+		if(key != null) {
+			if(value == null) {
+				dataSet.set(key, nullInstance);
+			} else {
+				dataSet.set(key, value);
+			}
+		}
 	}
 	public void Remove(String key) {
 		dataSet.Remove(key);
@@ -52,6 +83,10 @@ public class GenericDataSet {
 	@SuppressWarnings("unchecked")
 	public <T> T get(String key, T defaultVal) {
 		Object objRet = dataSet.get(key);
+		// compare reference and check whether it is reference to null instance.
+		if(objRet == nullInstance) {
+			return null;
+		}
 		T ret = defaultVal;
 		try {
 			if(defaultVal != null && objRet != null) {
@@ -89,4 +124,5 @@ public class GenericDataSet {
 	public Iterable<String> keySet(){
 		return dataSet.Keys();
 	}
+
 }

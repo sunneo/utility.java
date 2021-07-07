@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
+import com.example.sharp.coroutine.Coroutine;
+
 public class Delegates {
     public static interface Func<T> {
         public T Invoke();
@@ -80,8 +82,169 @@ public class Delegates {
         public void Invoke(P1 arg1, P2 arg2, P3 arg3, P4 arg4, P5 arg5, P6 arg6, P7 arg7, P8 arg8);
     }
 
-    public static <T> Iterable<T> NullIterable() {
-        return new Iterable<T>() {
+    public static interface IterableEx<T> extends Iterable<T>{
+    	public default <T2> IterableEx<T2> translate(Func1<T, T2> translator){
+    		return null;
+    	}
+    	
+    	/**
+    	 * merge 2 iterator
+    	 */
+    	@SuppressWarnings("unchecked")
+		public default IterableEx<T> merge(Iterable<T> concat){
+    		return null;
+    	}
+    	/**
+    	 * create dictionary from mapping function and accept function
+    	 * @param <V>
+    	 * @param transform
+    	 * @param accept
+    	 * @return
+    	 */
+    	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform, Delegates.Func1<T, Boolean> accept){
+    		return null;
+    	}
+    	/**
+    	 * create dictionary from mapping function
+    	 * @param <V>
+    	 * @param transform
+    	 * @return
+    	 */
+    	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform){
+    		return map(transform,null);
+    	}
+    	/**
+    	 * create filtered iterator from given filter function.
+    	 * @param accept
+    	 * @return
+    	 */
+    	public default IterableEx<T> filter(Delegates.Func1<T, Boolean> accept){
+    		return Delegates.filter(this, accept);
+    	}
+    	/**
+    	 * convert to Array
+    	 * @return
+    	 */
+    	public default T[] toArray() {
+    		return Delegates.toArray(this);
+    	}
+    	/**
+    	 * convert to vector
+    	 * @return
+    	 */
+    	public default Vector<T> toVector(){
+    		return Delegates.toVector(this);
+    	}
+    	/**
+    	 * reduce whole iterable into 1 value 
+    	 * @param reduceFnc function to reduce 2 value into 1, like minimal, maximal
+    	 * @return
+    	 */
+    	public default T reduce(Delegates.Func2<T,T, T> reduceFnc){
+    		return Delegates.reduce(this, reduceFnc);
+    	}
+    	/**
+    	 * convert to linkedlist
+    	 * @return
+    	 */
+    	public default LinkedList<T> toList(){
+    		return Delegates.tolist(this);
+    	}
+    }
+    public static interface IteratorEx<T> extends Iterator<T>{
+    	public default <T2> IteratorEx<T2> translate(Func1<T, T2> translator){
+    		return null;
+    	}
+    	@SuppressWarnings("unchecked")
+		public default IteratorEx<T> merge(Iterator<T> concat){
+    		return null;
+    	}
+		public default IteratorEx<T> flat(){
+    		return null;
+    	}
+    	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform, Delegates.Func1<T, Boolean> accept){
+    		return null;
+    	}
+    	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform){
+    		return map(transform,null);
+    	}
+    	public default IteratorEx<T> filter(Delegates.Func1<T, Boolean> accept){
+    		return Delegates.filter(this, accept);
+    	}
+    	public default T[] toArray() {
+    		return Delegates.toArray(this);
+    	}
+    	public default Vector<T> toVector(){
+    		return Delegates.toVector(this);
+    	}
+    	/**
+    	 * reduce whole iterable into 1 value 
+    	 * @param reduceFnc function to reduce 2 value into 1, like minimal, maximal
+    	 * @return
+    	 */
+    	public default T reduce(Delegates.Func2<T,T, T> reduceFnc){
+    		return Delegates.reduce(this, reduceFnc);
+    	}
+    	/**
+    	 * convert to linkedlist
+    	 * @return
+    	 */
+    	public default LinkedList<T> toList(){
+    		return Delegates.tolist(this);
+    	}
+    }
+    static class IterableExImpl<T> implements IterableEx<T>{
+    	Iterable<T> instance;
+    	public IterableExImpl(Iterable<T> instance) {
+    		this.instance = instance;
+    	}
+    	
+    	public <T2> IterableEx<T2> translate(Func1<T, T2> translator){
+    		return new IterableExImpl<T2>(Delegates.forall(instance,translator));
+    	}
+    	@SuppressWarnings("unchecked")
+		public IterableEx<T> merge(Iterable<T> concat){
+    		return new IterableExImpl<T>(Delegates.forall(this,concat));
+    	}
+    	public <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform, Delegates.Func1<T, Boolean> accept){
+    		return Delegates.map(instance, transform, accept);
+    	}
+		@Override
+		public Iterator<T> iterator() {
+			return new IteratorExImpl<T>(instance.iterator());
+		}
+    }
+    static class IteratorExImpl<T> implements IteratorEx<T>{
+    	Iterator<T> instance;
+    	public IteratorExImpl(Iterator<T> instance) {
+    		this.instance = instance;
+    	}
+    	
+    	public <T2> IteratorEx<T2> translate(Func1<T, T2> translator){
+    		return new IteratorExImpl<T2>(Delegates.iterator(Delegates.forall(instance),translator));
+    	}
+    	@SuppressWarnings("unchecked")
+		public IteratorEx<T> merge(Iterator<T>... concat){
+    		return new IteratorExImpl<T>(Delegates.mergeIterator(concat));
+    	}
+    	public <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform, Delegates.Func1<T, Boolean> accept){
+    		Iterable<T> iterable=Delegates.forall(instance);
+    		return Delegates.map(iterable, transform, accept);
+    	}
+		@Override
+		public boolean hasNext() {
+			return instance.hasNext();
+		}
+
+		@Override
+		public T next() {
+			return instance.next();
+		}
+    	
+		
+    }
+    public static <T> IterableEx<T> NullIterable() {
+        return new IterableEx<T>() {
 
             @Override
             public Iterator<T> iterator() {
@@ -91,8 +254,8 @@ public class Delegates {
 
         };
     }
-    public static <T> Iterator<T> NullIterator() {
-        return new Iterator<T>() {
+    public static <T> IteratorEx<T> NullIterator() {
+        return new IteratorEx<T>() {
 
             @Override
             public boolean hasNext() {
@@ -116,8 +279,8 @@ public class Delegates {
      * @param array target array to iterate
      * @return array iterator
      */
-    public static <T> Iterator<T> iterator(T[] array) {
-        return new Iterator<T>() {
+    public static <T> IteratorEx<T> iterator(T[] array) {
+    	Iterator<T> ret =  new Iterator<T>() {
             int index = 0;
 
             @Override
@@ -136,14 +299,15 @@ public class Delegates {
             }
 
         };
+        return new IteratorExImpl<T>(ret);
     }
     /**
      * enumerate an Enumeration
      * 
      * wrap it into iterator.
      */
-    public static <T> Iterator<T> iterator(Enumeration<T> enumeration) {
-        return new Iterator<T>() {
+    public static <T> IteratorEx<T> iterator(Enumeration<T> enumeration) {
+    	Iterator<T> ret =   new Iterator<T>() {
 
             @Override
             public boolean hasNext() {
@@ -156,6 +320,7 @@ public class Delegates {
             }
             
         };
+        return new IteratorExImpl<T>(ret);
     }
     /**
      * enumerate an StringTokenizer
@@ -164,8 +329,8 @@ public class Delegates {
      * @param array target array to iterate
      * @return array iterator
      */
-    public static Iterator<String> iterator(StringTokenizer enumeration) {
-        return new Iterator<String>() {
+    public static IteratorEx<String> iterator(StringTokenizer enumeration) {
+    	Iterator<String> ret = new Iterator<String>() {
             
             @Override
             public boolean hasNext() {
@@ -178,6 +343,7 @@ public class Delegates {
             }
             
         };
+        return new IteratorExImpl<String>(ret);
     }
     
     /**
@@ -187,8 +353,16 @@ public class Delegates {
      * @param collection target collection to iterate
      * @return collection iterator
      */
-    public static <T> Iterator<T> iterator(Collection<T> collection) {
-        return collection.iterator();
+    public static <T> IteratorEx<T> iterator(Collection<T> collection) {
+    	return new IteratorExImpl<T>( collection.iterator() );
+    }
+    public static <T1,T2> IterableEx<T2> forall(T1[] iter,Func1<T1,T2> transform){
+    	Iterable<T2> ret =  Delegates.forall(Delegates.iterator(Delegates.forall(iter),transform));
+    	return new IterableExImpl<T2>(ret);
+    }
+    public static <T1,T2> Iterable<T2> forall(Iterable<T1> iter,Func1<T1,T2> transform){
+    	Iterable<T2> ret =  Delegates.forall(Delegates.iterator(iter,transform));
+    	return new IterableExImpl<T2>(ret); 
     }
     /**
      * enumerate an array
@@ -197,18 +371,21 @@ public class Delegates {
      * @param array target array to iterate
      * @return array iterator
      */
-    public static <T> Iterable<T> forall(T[] array) {
+    public static <T> IterableEx<T> forall(T[] array) {
+    	Iterable<T> ret = null;
     	if(array == null || array.length == 0) {
-    		return Delegates.NullIterable();
+    		ret = Delegates.NullIterable();
+    	} else {
+	    	 ret = new Iterable<T>() {
+	
+	            @Override
+	            public Iterator<T> iterator() {
+	                return Delegates.iterator((T[]) array);
+	            }
+	
+	        };
     	}
-        return new Iterable<T>() {
-
-            @Override
-            public Iterator<T> iterator() {
-                return Delegates.iterator((T[]) array);
-            }
-
-        };
+    	return new IterableExImpl<T>(ret); 
     }
     /**
      * lazy iterable-concatenate
@@ -221,8 +398,11 @@ public class Delegates {
      * @return combined iterable.
      */
     @SafeVarargs
-	public static <T> Iterable<T> forall(Iterable<T>... concat) {
-        return new Iterable<T>() {
+	public static <T> IterableEx<T> forall(Iterable<T>... concat) {
+    	if(concat == null) {
+    		return Delegates.NullIterable();
+    	}
+    	Iterable<T> ret = new Iterable<T>() {
             @Override
             public Iterator<T> iterator() {
                 return new Iterator<T>() {
@@ -231,13 +411,28 @@ public class Delegates {
                 	Iterator<T> lastIterator=null;
 					@Override
 					public boolean hasNext() {
-						if(lastIterator == null || !lastIterator.hasNext()) {
-							lastIterable=iterators.next();
-							if(lastIterable != null) {
-							   lastIterator = lastIterable.iterator();
+						boolean result=false;
+						if(iterators.hasNext()) {
+							while(iterators.hasNext()) {
+								if(lastIterator == null || !lastIterator.hasNext()) {
+									lastIterable=iterators.next();
+									if(lastIterable != null) {
+									   lastIterator = lastIterable.iterator();
+									}
+									if(lastIterator != null && lastIterator.hasNext()) {
+										result = true;
+										break;
+									}
+								} else {
+									break;
+								}
 							}
+						} 
+						if(lastIterator != null) {
+							result = lastIterator.hasNext();
 						}
-						return iterators.hasNext() || (lastIterator != null && lastIterator.hasNext());
+						
+						return result;
 					}
 
 					@Override
@@ -255,10 +450,11 @@ public class Delegates {
             }
 
         };
+        return new IterableExImpl<T>(ret); 
     }
     @SafeVarargs
-	public static <T> Iterator<T> mergeIterator(Iterator<T>... concat){
-    	return new Iterator<T>() {
+	public static <T> IteratorEx<T> mergeIterator(Iterator<T>... concat){
+    	Iterator<T> ret =  new Iterator<T>() {
         	Iterator<Iterator<T>> iterators = Delegates.forall(concat).iterator();
         	Iterator<T> lastIterator=null;
 			@Override
@@ -275,6 +471,7 @@ public class Delegates {
 			}
         	
         };
+        return new IteratorExImpl<T>(ret); 
     }
     @SuppressWarnings("unchecked")
 	public static <T> T[] toArray(Iterable<T> iterable){
@@ -282,8 +479,13 @@ public class Delegates {
         if(vec.isEmpty()) {
         	return (T[]) null;
         }
-        T[] ret = (T[]) Array.newInstance(vec.get(0).getClass(), vec.size());
-        return vec.toArray(ret);
+        try {
+        	if(vec.get(0) == null) return null;
+	        T[] ret = (T[]) Array.newInstance(vec.get(0).getClass(), vec.size());
+	        return vec.toArray(ret);
+        }catch(Exception ee) {
+        	return null;
+        }
     }
 	public static <T> T[] toArray(Iterator<T> iterator) {
 		return toArray(Delegates.forall(iterator));
@@ -295,9 +497,6 @@ public class Delegates {
      * @return list of values in vector
      */
     public static <T> Vector<T> toVector(Iterable<T> iterable){
-    	if(iterable instanceof Vector) {
-    		return (Vector<T>)iterable;
-    	}
         Vector<T> ret = new Vector<T>();
         for(T value:iterable) {
             ret.add(value);
@@ -318,17 +517,18 @@ public class Delegates {
         return toVector(forall(enumeration));
     }
     public static Vector<String> toVector(StringTokenizer tokenizer){
+    	
         return toVector(forall(tokenizer));
     }
     
-    public static Iterable<String> forall(StringTokenizer tokenizer){
-        return ()->iterator(tokenizer); 
+    public static IterableEx<String> forall(StringTokenizer tokenizer){
+        return new IterableExImpl<String>(()->iterator(tokenizer)); 
     }
-    public static <T> Iterable<T> forall(Enumeration<T> enumeration){
-        return ()->iterator(enumeration);
+    public static <T> IterableEx<T> forall(Enumeration<T> enumeration){
+        return new IterableExImpl<T>(()->iterator(enumeration));
     }
-    public static <T> Iterable<T> forall(Iterator<T> iterator) {
-        return () -> iterator;
+    public static <T> IterableEx<T> forall(Iterator<T> iterator) {
+        return new IterableExImpl<T>(() -> iterator);
     }
 
     /**
@@ -357,8 +557,8 @@ public class Delegates {
 
      *
      */
-    public static <T1,T2> Iterator<T2> iterator(Iterable<T1> iter1, Delegates.Func1<T1, T2> transform){
-    	return new Iterator<T2>() {
+    public static <T1,T2> IteratorEx<T2> iterator(Iterable<T1> iter1, Delegates.Func1<T1, T2> transform){
+    	Iterator<T2> ret =  new Iterator<T2>() {
     		Iterator<T1> iter = iter1.iterator();
 			@Override
 			public boolean hasNext() {
@@ -371,6 +571,7 @@ public class Delegates {
 			}
     		
     	};
+    	return new IteratorExImpl<T2>(ret);
     }
     
     
@@ -384,8 +585,8 @@ public class Delegates {
      * @param iteratorGenerator generator for retrieving inner iterator
      * @return an iterator returns inner result
      */
-    public static <T1, T2> Iterator<KeyValuePair<T1,T2>> EnumerateNestedIterator(Iterator<T1> p1, Func1<T1, Iterator<T2>> iteratorGenerator) {
-        return new Iterator<KeyValuePair<T1,T2>>() {
+    public static <T1, T2> IteratorEx<KeyValuePair<T1,T2>> EnumerateNestedIterator(Iterator<T1> p1, Func1<T1, Iterator<T2>> iteratorGenerator) {
+    	Iterator<KeyValuePair<T1,T2>> ret =  new Iterator<KeyValuePair<T1,T2>>() {
 
             private boolean   inited           = false;
             Property<Boolean> entryHasNext     = new Property<Boolean>();
@@ -423,12 +624,13 @@ public class Delegates {
             @Override
             public KeyValuePair<T1,T2> next() {
                 if (nestedIterator != null) {
-                    return new KeyValuePair<T1,T2>(current,nestedIterator.next());
+                    return KeyValuePair.pair(current,nestedIterator.next());
                 }
                 return null;
             }
 
         };
+        return new IteratorExImpl<KeyValuePair<T1,T2>>(ret);
     }
     
     /**
@@ -455,10 +657,11 @@ public class Delegates {
      * @return a dictionary which maps key -> values
 
    	 */
-    public static <K,V> Dictionary<K,Vector<V>> groupBy(Vector<V> filtered, Delegates.Func1<V, K> groupNameDelegate){
+    public static <K,V> Dictionary<K,Vector<V>> groupBy(Iterable<V> filtered, Delegates.Func1<V, K> groupNameDelegate){
     	Dictionary<K,Vector<V>> ret = new Dictionary<K,Vector<V>>();
 		for(V entry:filtered) {
 			K groupName = groupNameDelegate.Invoke(entry);
+			if(groupName == null) continue;
 			Vector<V> subGroup = null;
 			if(ret.ContainsKey(groupName)) {
 				subGroup = ret.get(groupName);
@@ -520,6 +723,9 @@ public class Delegates {
     	return ret;
     }
     
+    public static <K> Dictionary<K,K> map(K[] keys, Delegates.Func1<K, Boolean> accept){
+    	return map(Delegates.forall(keys),accept);
+    }
     public static <K> Dictionary<K,K> map(Iterable<K> keys, Delegates.Func1<K, Boolean> accept){
     	Dictionary<K, K> ret = new Dictionary<K, K>();
     	if(accept == null) {
@@ -531,6 +737,123 @@ public class Delegates {
     	}
     	return ret;
     }
+    
 
+    public static IterableEx<String> filter(StringTokenizer iter, Delegates.Func1<String,Boolean> accept){
+    	return Delegates.forall(filter(Delegates.iterator(iter),accept));
+    }
+    public static <T> IterableEx<T> filter(T[] iter, Delegates.Func1<T,Boolean> accept){
+    	return Delegates.forall(filter(Delegates.iterator(iter),accept));
+    }
+    public static <T> IterableEx<T> filter(Iterable<T> iter, Delegates.Func1<T,Boolean> accept){
+    	return Delegates.forall(filter(iter.iterator(),accept));
+    }
+    public static <T> IteratorEx<T> filter(Iterator<T> iter, Delegates.Func1<T,Boolean> accept){
+    	Iterator<T> ret = new Iterator<T>() {
+    		boolean tested=false;
+    		Coroutine newCoroutine() {
+    			Coroutine cor= new Coroutine();
+    			cor.addInstruction("TESTITERATOR", (pthis)->{
+    				if(!iter.hasNext()) {
+    					pthis.jmp("END");
+    					pthis.stop();
+    				}
+    			});
+    			cor.addInstruction((pthis) -> {
+					T val = iter.next();
+					if(accept != null && accept.Invoke(val)) {
+						pthis.yield(val);	
+					}
+					
+				});
+
+				cor.addInstruction((pthis) -> {
+					pthis.jmp("TESTITERATOR");
+				});
+				cor.addInstruction("END", (pthis)->{});
+
+				cor.start();
+				return cor;
+    		}
+    		Coroutine cor= newCoroutine();
+			@Override
+			public boolean hasNext() {
+				if(!tested) {
+					if (!cor.isYield()) {
+						while (cor.exec()) { }
+					}
+					tested = true;
+				}
+				return !cor.isStopped();
+			}
+
+			@Override
+			public T next() {
+				if (!cor.isYield()) {
+					while (cor.exec()) { }
+				}
+
+				T ret = cor.getYieldValue();
+				while (cor.exec()) {
+
+				}
+				return ret;
+			}
+    		
+    	};
+    	return new IteratorExImpl<T>(ret);
+    }
+    public static <T> IteratorEx<T> flat(Iterator<Iterator<T>> nested){
+    	IteratorEx<KeyValuePair<Iterator<T>, T>> iter=Delegates.EnumerateNestedIterator(nested, (n)->n);
+    	return iter.translate((x)->x.Value);
+    }
+    public static <T> IterableEx<T> flat(Iterable<Iterable<T>> nested){
+    	IteratorEx<KeyValuePair<Iterable<T>, T>>  iter=Delegates.EnumerateNestedIterator(nested.iterator(), (n)->n.iterator());
+    	return Delegates.forall(iter.translate((x)->x.Value));
+    }
+   
+    /**
+	 * reduce whole iterable into 1 value 
+	 * @param reduceFnc function to reduce 2 value into 1, like minimal, maximal
+	 * @return
+	 */
+	public static <T> T reduce(Iterable<T> iter,Delegates.Func2<T,T, T> reduceFnc){
+		T val = null;
+		for(T t:iter) {
+			if(val == null) {
+				val = t;
+			} else {
+				val = reduceFnc.Invoke(t, val);
+			}
+		}
+		return val;
+	}
+    /**
+	 * reduce whole iterator into 1 value 
+	 * @param reduceFnc function to reduce 2 value into 1, like minimal, maximal
+	 * @return
+	 */
+	public static <T> T reduce(Iterator<T> iter,Delegates.Func2<T,T, T> reduceFnc){
+		return reduce(Delegates.forall(iter),reduceFnc);
+	}
+    /**
+     * translate from iterable to LinkedList
+     * @param <T1>
+     * @param itemVector
+     * @return
+     */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static <T1> LinkedList<T1> tolist(Iterable<T1> itemVector) {
+		if(itemVector instanceof LinkedList) return (LinkedList)itemVector;
+		LinkedList<T1> ret = new LinkedList<>();
+		for(T1 item:itemVector) {
+			ret.AddLast(item);
+		}
+		return ret;
+	}
+	public static <T1> LinkedList<T1> tolist(Iterator<T1> iter){
+		return tolist(Delegates.forall(iter));
+	}
+	
     
 }

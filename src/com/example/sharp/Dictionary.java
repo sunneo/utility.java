@@ -1,17 +1,18 @@
 package com.example.sharp;
 
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import com.example.events.EventDelegate;
 import com.example.events.INotification;
 import com.example.events.INotificationEventArgs;
 
+
 public class Dictionary<K, V> {
-	public EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemAdded = new EventDelegate<>();
-	public EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemRemoved = new EventDelegate<>();
-	public EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemUpdated = new EventDelegate<>();
-	public EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<Object>>> Cleared = new EventDelegate<>();
+	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemAdded = new EventDelegate<>();
+	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemRemoved = new EventDelegate<>();
+	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemUpdated = new EventDelegate<>();
+	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<Object>>> Cleared = new EventDelegate<>();
 	/**
 	 * lazy builder for creating dictionary in-line.
 	 * @author user
@@ -40,7 +41,7 @@ public class Dictionary<K, V> {
     public Dictionary() {
     }
 
-    Hashtable<K, V> instance = new Hashtable<>();
+    LinkedHashMap<K, V> instance = new LinkedHashMap<>();
 
     public V get(K key) {
         return instance.get(key);
@@ -74,6 +75,7 @@ public class Dictionary<K, V> {
 
     public void Clear() {
         instance.clear();
+        instance = new LinkedHashMap<>();
         Cleared.invoke(this, this);
     }
 
@@ -126,10 +128,43 @@ public class Dictionary<K, V> {
     	return ret;
     }
 
-    public Property<Integer> Count = new Property<Integer>() {
-        @Override
-		public Integer get() {
-            return instance.size();
-        }
-    };
+    /**
+     * dictionary count
+     * use get() to fetch its value
+     */
+    public IGetter<Integer> Count = ()->instance==null?0:instance.size();
+    /**
+     * dictionary is empty
+     * use get() to fetch its value
+     */
+    public IGetter<Boolean> IsEmpty = ()->instance==null||instance.isEmpty();
+    
+    public void dispose() {
+    	if(instance == null) {
+    		return;
+    	}
+
+    	Count = null;
+    	IsEmpty = null;
+    	if(instance!=null) {
+    		instance.clear();
+    	}
+    	instance =  null;
+    	if(ItemAdded != null) {
+    		ItemAdded.dispose();
+    	}
+    	
+    	if(ItemRemoved != null) {
+    		ItemRemoved.dispose();
+    	}
+    	
+    	if(ItemUpdated!=null) {
+    		ItemUpdated.dispose();
+    	}
+    	
+    	if(Cleared != null) {
+    		Cleared.dispose();
+    	}
+    
+    }
 }
