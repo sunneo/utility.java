@@ -8,7 +8,6 @@ import java.util.StringTokenizer;
 import java.util.Vector;
 
 import com.example.sharp.coroutine.Coroutine;
-
 public class Delegates {
     public static interface Func<T> {
         public T Invoke();
@@ -86,6 +85,9 @@ public class Delegates {
     	public default <T2> IterableEx<T2> translate(Func1<T, T2> translator){
     		return null;
     	}
+    	public default <K> Dictionary<K,Vector<T>> group(Delegates.Func1<T, K> transform){
+    		return Delegates.groupBy(this, transform);
+    	}
     	
     	/**
     	 * merge 2 iterator
@@ -159,8 +161,9 @@ public class Delegates {
 		public default IteratorEx<T> merge(Iterator<T> concat){
     		return null;
     	}
-		public default IteratorEx<T> flat(){
-    		return null;
+
+    	public default <K> Dictionary<K,Vector<T>> group(Delegates.Func1<T, K> transform){
+    		return Delegates.groupBy(Delegates.forall(this), transform);
     	}
     	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform, Delegates.Func1<T, Boolean> accept){
     		return null;
@@ -574,6 +577,11 @@ public class Delegates {
     	return new IteratorExImpl<T2>(ret);
     }
     
+    public static <T1, T2> IterableEx<KeyValuePair<T1,T2>> EnumerateNestedIterator(IterableEx<T1> p1, Func1<T1, IterableEx<T2>> iteratorGenerator) {
+    	return Delegates.forall(
+     			  EnumerateNestedIterator(p1.iterator(), (val)->iteratorGenerator.Invoke(val).iterator())
+    		   );
+    }
     
     /**
      * enumerate nested iterator, this function can be chained to traversal multiple
