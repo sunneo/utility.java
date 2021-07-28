@@ -406,14 +406,25 @@ public class Delegates {
     	return new IterableExImpl<T>(ret); 
     }
     /**
+     * convert primitive type array to Wrapped array and becomes IterableEx
+     * @param <T>
+     * @param array primitive array
+     * @param clz
+     * @return
+     */
+    public static <T> IterableEx<T> forall(Object array,Class<T> clz) {
+    	
+    	return Delegates.forall(Delegates.iterator(array, clz));
+    }
+    /**
      * convert primitive type array to Wrapped array and becomes iteratorEx
      * @param <T>
-     * @param array
+     * @param array primitive array
      * @param clz
      * @return
      */
     @SuppressWarnings("unchecked")
-	public static <T> IteratorEx<T> forall(Object array,Class<T> clz) {
+	public static <T> IteratorEx<T> iterator(Object array,Class<T> clz) {
     	return new IteratorExImpl<T>(new Iterator<T>() {
     		int len = Array.getLength(array);
     		int idx = 0;
