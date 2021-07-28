@@ -1,6 +1,7 @@
 package com.example.sharp;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -138,6 +139,13 @@ public class Delegates {
     		return Delegates.toVector(this);
     	}
     	/**
+    	 * convert to vector
+    	 * @return
+    	 */
+    	public default ArrayList<T> toArrayList(){
+    		return Delegates.toArrayList(this);
+    	}
+    	/**
     	 * reduce whole iterable into 1 value 
     	 * @param reduceFnc function to reduce 2 value into 1, like minimal, maximal
     	 * @return
@@ -179,6 +187,13 @@ public class Delegates {
     	}
     	public default Vector<T> toVector(){
     		return Delegates.toVector(this);
+    	}
+    	/**
+    	 * convert to vector
+    	 * @return
+    	 */
+    	public default ArrayList<T> toArrayList(){
+    		return Delegates.toArrayList(this);
     	}
     	/**
     	 * reduce whole iterable into 1 value 
@@ -391,6 +406,32 @@ public class Delegates {
     	return new IterableExImpl<T>(ret); 
     }
     /**
+     * convert primitive type array to Wrapped array and becomes iteratorEx
+     * @param <T>
+     * @param array
+     * @param clz
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+	public static <T> IteratorEx<T> forall(Object array,Class<T> clz) {
+    	return new IteratorExImpl<T>(new Iterator<T>() {
+    		int len = Array.getLength(array);
+    		int idx = 0;
+			@Override
+			public boolean hasNext() {
+				return idx + 1 < len;
+			}
+			@Override
+			public T next() {
+				T ret = (T)Array.get(array, idx);
+				++idx;
+				return ret;
+			}
+    		
+		});
+    	
+    }
+    /**
      * lazy iterable-concatenate
      * 
      * this function can combine many iterable object with same type 
@@ -493,6 +534,35 @@ public class Delegates {
 	public static <T> T[] toArray(Iterator<T> iterator) {
 		return toArray(Delegates.forall(iterator));
 	}
+    /**
+     * convert an iterable into a vector
+     * @param <T> value type
+     * @param iterable an iterable object
+     * @return list of values in vector
+     */
+    public static <T> ArrayList<T> toArrayList(Iterable<T> iterable){
+    	ArrayList<T> ret = new ArrayList<T>();
+        for(T value:iterable) {
+            ret.add(value);
+        }
+        return ret;
+    }
+    public static <T> ArrayList<T> toArrayList(ArrayList<T> iterator){
+    	// prevent unnecessary transform 
+        return iterator;
+    }
+    public static <T> ArrayList<T> toArrayList(T[] iterator){
+        return toArrayList(forall(iterator));
+    }
+    public static <T> ArrayList<T> toArrayList(Iterator<T> iterator){
+        return toArrayList(forall(iterator));
+    }
+    public static <T> ArrayList<T> toArrayList(Enumeration<T> enumeration){
+        return toArrayList(forall(enumeration));
+    }
+    public static ArrayList<String> toArrayList(StringTokenizer tokenizer){
+        return toArrayList(forall(tokenizer));
+    }
     /**
      * convert an iterable into a vector
      * @param <T> value type
@@ -726,7 +796,12 @@ public class Delegates {
     	}
     	for(K k:keys) {
     		if(!accept.Invoke(k)) continue;
-    		ret.set(k,transform.Invoke(k));
+    		if(transform != null) {
+    			ret.set(k,transform.Invoke(k));	
+    		} else {
+    			ret.set(k,(V)k);
+    		}
+    		
     	}
     	return ret;
     }
