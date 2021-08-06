@@ -288,8 +288,15 @@ public class Delegates {
         };
     }
 
-    
-
+    /**
+     * up cast
+     * @param <T>
+     * @param iter
+     * @return
+     */
+    public static <T> IteratorEx<T> iterator(Iterator<T> iter){
+    	  return new IteratorExImpl<T>(iter);
+    }
     /**
      * enumerate an array
      * 

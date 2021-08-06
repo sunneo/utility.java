@@ -1,10 +1,16 @@
 package com.example.sharp.coroutine;
-
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Vector;
 
+import com.example.events.Var;
 import com.example.sharp.CString;
+import com.example.sharp.Delegates;
 import com.example.sharp.Delegates.Action1;
+import com.example.sharp.Delegates.IterableEx;
+import com.example.sharp.Delegates.IteratorEx;
+import com.example.sharp.LinkedList;
+import com.example.sharp.Tracer;
 
 
 
@@ -17,6 +23,78 @@ public class Coroutine {
 
 	public enum State {
 		None, Run, Suspend, Stop
+	}
+	public static class CompositeBlock{
+		int ip;
+		Coroutine parent;
+		Delegates.Action1<Coroutine> body;
+		// instruction point
+		public int getIP() {
+			return ip;
+		}
+		public CompositeBlock run(Delegates.Action1<Coroutine> ins) {
+			this.body=ins;
+			return this;
+		}
+	}
+	/**
+	 * convert coroutine to iterable
+	 * @param <T>
+	 * @param clz class to hint java adopt as base type for casting
+	 * @return
+	 */
+	public <T> IterableEx<T> iterable(Class<T> clz){
+		return Delegates.forall(iterator());
+	}
+	/**
+	 * convert coroutine to iterable
+	 * @param <T>
+	 * @return
+	 */
+	public <T> IterableEx<T> iterable(){
+		return Delegates.forall(iterator());
+	}
+	/**
+	 * convret coroutien to iterator
+	 * @param <T>
+	 * @param clz
+	 * @return
+	 */
+	public <T> IteratorEx<T> iterator(Class<T> clz){
+		return iterator();
+	}
+	/**
+	 * convert to iterator
+	 * @param <T>
+	 * @return
+	 */
+	public <T> IteratorEx<T> iterator(){
+		
+		return Delegates.iterator(new Iterator<T>() {
+			boolean tested = false;
+			@Override
+			public boolean hasNext() {
+				if(!tested) {
+					if (!isYield()) {
+						while (exec()) { }
+					}
+					tested = true;
+				}
+				return !isStopped();			
+			}
+
+			@Override
+			public T next() {
+				if (!isYield()) {
+					while (exec()) { }
+				}
+				T ret = getYieldValue();
+				while (exec()) {
+
+				}
+				return ret;
+			}
+		});
 	}
 
 	public Vector<Action1<Coroutine>> instructions = new Vector<Action1<Coroutine>>();
@@ -123,6 +201,7 @@ public class Coroutine {
 		return (T) globals.get(name);
 	}
 
+
 	/**
 	 * add instruction
 	 *
@@ -134,7 +213,104 @@ public class Coroutine {
 		instructions.add(ins);
 		return idx;
 	}
+	/**
+	 * break
+	 */
+	public void doBreak() {
+		if(ipLoopEnd.IsEmpty.get()) return;
+		int end = ipLoopEnd.Last.get().Value;
+		if(end >= 0) {
+			jmp(end);
+		}
+	}
+	/**
+	 * break
+	 */
+	public void doContinue() {
+		if(ipLoopStart.IsEmpty.get()) return;
+		int end = ipLoopStart.Last.get().Value;
+		if(end >= 0) {
+			jmp(end);
+		}
+	}
 
+	LinkedList<Integer> ipLoopEnd = new LinkedList<Integer>();
+	LinkedList<Integer> ipLoopStart = new LinkedList<Integer>();
+	/**
+	 * while loop
+	 * @param cond
+	 * @return
+	 */
+	public CompositeBlock While(Delegates.Func<Boolean> cond) {
+		Var<Integer> breakLoop = new Var<>();
+		CompositeBlock ret = new CompositeBlock();
+		Coroutine pthat=this.push();
+		ret.parent = pthat;
+		
+		int loopPos = pthat.addInstruction((cor)->{
+			if(!cond.Invoke()) {
+				cor.jmp(breakLoop.get());
+				return;
+			}
+		});
+		pthat.addInstruction((cor)->{
+			try {
+				// While Loop Body
+				if(ret.body!=null) {
+				   ret.body.Invoke(cor);
+				}
+			}catch(Exception ee) {
+				Tracer.D(ee);
+				cor.stop();
+			}
+		});
+		pthat.addInstruction((cor)->cor.jmp(loopPos));
+		int endloop=pthat.addInstruction((cor)->{
+		});
+		breakLoop.set(endloop);
+		ret.ip = loopPos;
+		return ret;
+	}
+	/**
+	 * For-Loop
+	 * @param init
+	 * @param cond
+	 * @param step
+	 * @return
+	 */
+	public CompositeBlock For(Delegates.Action1<Coroutine> init,Delegates.Func<Boolean> cond,Delegates.Action1<Coroutine> step) {
+		Var<Integer> breakLoop = new Var<>();
+		CompositeBlock ret = new CompositeBlock();
+		Coroutine pthat=this.push();
+		ret.parent = pthat;
+		int initPos = pthat.addInstruction(init);
+		
+		int loopPos = pthat.addInstruction((cor)->{
+			if(!cond.Invoke()) {
+				cor.jmp(breakLoop.get());
+				return;
+			}
+		});
+		pthat.addInstruction((cor)->{
+			try {
+				// While Loop Body
+				if(ret.body!=null) {
+				   ret.body.Invoke(cor);
+				}
+			}catch(Exception ee) {
+				Tracer.D(ee);
+				cor.stop();
+			}
+		});
+		pthat.addInstruction(step);
+		pthat.addInstruction((cor)->cor.jmp(loopPos));
+		int endloop=pthat.addInstruction((cor)->{
+			 
+		});
+		breakLoop.set(endloop);
+		ret.ip = loopPos;
+		return ret;
+	}
 	/**
 	 * add labeled instruction
 	 *
@@ -313,6 +489,7 @@ public class Coroutine {
 	 */
 	public boolean isYield() {
 		Coroutine selection = this;
+		// check topmost one
 		while (selection.next != null) {
 			selection = selection.next;
 		}
