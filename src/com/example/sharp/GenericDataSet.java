@@ -3,13 +3,17 @@ package com.example.sharp;
 import java.util.Map;
 
 
+
 /**
  * a storage for arbitrary data. 
  *
  */
 public class GenericDataSet {
-	Dictionary<String,Object> dataSet = new Dictionary<String, Object>();
+    BaseDictionary<String,Object> dataSet = new BaseDictionary<String, Object>();
 	final static Object nullInstance=new Object();
+	public BaseDictionary<String,Object> getDictionary(){
+		return dataSet;
+	}
 	public GenericDataSet() {
 		
 	}
@@ -124,5 +128,16 @@ public class GenericDataSet {
 	public Iterable<String> keySet(){
 		return dataSet.Keys();
 	}
-
+	/**
+	 * get all param values for IParameterValues interface
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public Map getParameterValues() {
+		return this.dataSet.instance;
+	}
+	public void mergeReplace(GenericDataSet that) {
+		this.dataSet.mergeReplace(that.dataSet);
+	}
+	 
 }

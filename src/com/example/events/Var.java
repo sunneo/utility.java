@@ -1,14 +1,11 @@
 package com.example.events;
 
-import com.example.sharp.IGetter;
-import com.example.sharp.ISetter;
-
 /**
  * a variable class which provides onValueChange event.
  *
  * @param <T> variable type.
  */
-public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISetter<T> {
+public class Var<T extends Object> extends BaseVar<T> {
 	public static <T> Var<T> create(T val){
 		return new Var<T>(val);
 	}
@@ -22,6 +19,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 	public static class Builder<T>{
 		boolean m_unsetOnNull;
 		T m_defaultValue;
+		boolean m_notifyOnOnlyChange=false;
 		INotification<ValueChangedEventArgs<T>> m_valueChangedHandler;
 		INotification<INotificationEventArgs.INotificationEventArg1<T>> m_valueChangeRejectHandler;
 		public Builder<T> unsetOnNull(boolean enabled) {
@@ -30,6 +28,10 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 		}
 		public Builder<T> value(T val) {
 			this.m_defaultValue=val;
+			return this;
+		}
+		public Builder<T> notifyOnlyOnChange(boolean bEnable){
+			this.m_notifyOnOnlyChange=bEnable;
 			return this;
 		}
 		public Builder<T> changed(INotification<ValueChangedEventArgs<T>> valueChangedHandler) {
@@ -53,6 +55,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 					}
 				}
 			};
+			ret.notifyOnlyOnChanged=m_notifyOnOnlyChange;
 			if(m_unsetOnNull && m_defaultValue == null) {
 				ret.hasValue=false;
 			}
@@ -65,7 +68,6 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 			return ret;
 		}
 	}
-	protected T value;
 	/**
 	 * return a restorable-which will restore to default value on a GET() is invoked
 	 * 
@@ -76,14 +78,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 	public static <T> Var<T> newRestorable(T defaultVal){
 		return new RestorableVar<T>(defaultVal); 
 	}
-	/**
-	 * arguments for handling var chaining.
-	 */
-	public static class ChainActionArgs extends INotificationEventArgs {
-		public BaseVar sender;
-		public BaseVar[] others;
-	}
-
+	
 	boolean isdisposed=false;
 	public boolean isDisposed() {
 		return isdisposed;
@@ -100,12 +95,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 		super.dispose();
 		isdisposed=true;
 	}
-	/**
-	 * action for handling chaining.
-	 */
-	public interface ChainAction {
-		void run(ChainActionArgs args);
-	}
+	
 
 	public EventDelegate<INotification<ValueChangedEventArgs<T>>> onValueChanged = new EventDelegate<>();
 	public EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<T>>> onValueChangeRejected = new EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<T>>>();
@@ -137,7 +127,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 		boolean hadValue=hasValue;
 		changed=false;
 		if (notifyOnlyOnChanged) {
-			if(!hadValue || !this.value.equals(value)) {
+			if(!hadValue || !(this.value!=null && this.value.equals(value))) {
 				changed=true;
 			}
 		} else {
@@ -160,40 +150,7 @@ public class Var<T extends Object> extends BaseVar implements IGetter<T>, ISette
 		return this.value;
 	}
 
-	/**
-	 * chain availability of Vars
-	 *
-	 * @param action action triggered when chained variables have value.
-	 *               (dependencies satisfied)
-	 * @param vars   dependencies.
-	 */
-	public static void chain(Var<? extends Object> pthis, ChainAction action, BaseVar... vars) {
-		@SuppressWarnings("rawtypes")
-		INotification handler = new INotification() {
-			@Override
-			public void perform(Object from, INotificationEventArgs e) {
-				if (vars.length > 0) {
-					boolean hasValue = true;
-					for (BaseVar other : vars) {
-						if (!other.hasValue) {
-							hasValue = false;
-							break;
-						}
-					}
-					if (hasValue && action != null) {
-						ChainActionArgs args = new ChainActionArgs();
-						args.sender = pthis;
-						args.others = vars;
-						action.run(args);
-					}
-				}
-			}
-		};
-
-		for (BaseVar var : vars) {
-			var.onChanged.addDelegate(handler);
-		}
-	}
+	
 
 	public Var(T value){
 		this.value = value;

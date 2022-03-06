@@ -3,7 +3,8 @@ package com.example.sharp;
 /**
  * design to achieve Property-overriding statement in C# use constructor to make
  * sure that IOverride.override is invoked right after constructor. for example,
- * the following code can override SomeProperty.get <code>
+ * the following code can override SomeProperty.get 
+ * <pre>{@code
  * OverrideInitializer overrideInit = new OverrideInitializer(new IOverride(){
  *    public void override(){
  *       SomeProperty = new Property<>(){
@@ -12,8 +13,8 @@ package com.example.sharp;
  *       };
  *    }
  * });
- * </code>
- *
+ * }</pre>
+ * 
  */
 public class OverrideInitializer {
     public OverrideInitializer(IOverride override) {

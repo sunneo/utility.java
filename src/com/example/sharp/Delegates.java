@@ -1,6 +1,8 @@
 package com.example.sharp;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -9,6 +11,7 @@ import java.util.StringTokenizer;
 import java.util.Vector;
 
 import com.example.sharp.coroutine.Coroutine;
+
 public class Delegates {
     public static interface Func<T> {
         public T Invoke();
@@ -91,7 +94,23 @@ public class Delegates {
     	}
     	
     	/**
-    	 * merge 2 iterator
+    	 * merge 2 iterable
+    	 * 
+    	 * following example will output 1,2,3,4,5,6,7,8,9,10,11,12
+    	 * <pre>
+    	 * {@code
+    	 * IterableEx<Integer> iter=Delegates.forall(Util.list(1,2,3,4,5));
+         * iter=iter.merge(Delegates.NullIterable());
+         * iter=iter.merge(Delegates.forall(Util.list(6,7,8,9,10)));
+         * iter=iter.merge(Delegates.NullIterable());
+         * iter=iter.merge(Delegates.forall(Util.list(11,12)));
+         * for(Integer val:iter) {
+         *    Debug.showDebugInfo(val, true);
+         * }
+         * 
+         * }
+         * </pre>
+    	 * 
     	 */
     	@SuppressWarnings("unchecked")
 		public default IterableEx<T> merge(Iterable<T> concat){
@@ -115,6 +134,32 @@ public class Delegates {
     	 */
     	public default <V> Dictionary<T,V> map(Delegates.Func1<T, V> transform){
     		return map(transform,null);
+    	}
+    	/**
+    	 * create dictionary from current iterator (if current iterator is not IterableEx<KeyValurPair<K,V>, an empty dictionary will be returned)
+    	 * for example
+    	 * <pre>
+    	 * {@code
+    	 * 
+    	 * Dictionary<Integer,Integer> intmap = Delegates.forall(Util.list(1,2,3,4,5,6,7,8))
+		 *   	                                         .translate((x)->new KeyValuePair<Integer,Integer>(x,x*10))
+		 *   	                                         .map()
+		 *   	                                         ;
+		 * // the value of intmap is (1=>10,20=>20,3=>30...)
+    	 * 
+    	 * }
+    	 * </pre>
+    	 * 
+    	 * @return
+    	 */
+    	public default <K,V> Dictionary<K,V> map(){
+    		try {
+	    		Class<IterableEx<KeyValuePair<K,V>>> kvClass=(Class<IterableEx<KeyValuePair<K,V>>>)this.getClass();
+	    		if(!kvClass.isInstance(this)) return new Dictionary<K, V>();
+	    		return Dictionary.from(kvClass.cast(this));
+    		} catch (Exception ee) {
+    			return new Dictionary<K, V>();
+    		}
     	}
     	/**
     	 * create filtered iterator from given filter function.
@@ -261,6 +306,16 @@ public class Delegates {
     	
 		
     }
+    /**
+     * up cast
+     * @param <T>
+     * @param iter
+     * @return
+     */
+    public static <T> IteratorEx<T> iterator(Iterator<T> iter){
+    	  return new IteratorExImpl<T>(iter);
+    }
+
     public static <T> IterableEx<T> NullIterable() {
         return new IterableEx<T>() {
 
@@ -288,15 +343,8 @@ public class Delegates {
         };
     }
 
-    /**
-     * up cast
-     * @param <T>
-     * @param iter
-     * @return
-     */
-    public static <T> IteratorEx<T> iterator(Iterator<T> iter){
-    	  return new IteratorExImpl<T>(iter);
-    }
+    
+
     /**
      * enumerate an array
      * 
@@ -385,7 +433,7 @@ public class Delegates {
     	Iterable<T2> ret =  Delegates.forall(Delegates.iterator(Delegates.forall(iter),transform));
     	return new IterableExImpl<T2>(ret);
     }
-    public static <T1,T2> Iterable<T2> forall(Iterable<T1> iter,Func1<T1,T2> transform){
+    public static <T1,T2> IterableEx<T2> forall(Iterable<T1> iter,Func1<T1,T2> transform){
     	Iterable<T2> ret =  Delegates.forall(Delegates.iterator(iter,transform));
     	return new IterableExImpl<T2>(ret); 
     }
@@ -420,7 +468,6 @@ public class Delegates {
      * @return
      */
     public static <T> IterableEx<T> forall(Object array,Class<T> clz) {
-    	
     	return Delegates.forall(Delegates.iterator(array, clz));
     }
     /**
@@ -535,6 +582,37 @@ public class Delegates {
         };
         return new IteratorExImpl<T>(ret); 
     }
+    static public ParameterizedType getParameterizedType(Class<?> target) {
+        Type[] types = getGenericType(target);
+        if (types.length > 0 && types[0] instanceof ParameterizedType) {
+          return (ParameterizedType) types[0];
+        }
+        return null;
+      }
+
+      static public Type[] getParameterizedTypes(Class<?> target) {
+        Type[] types = getGenericType(target);
+        if (types.length > 0 && types[0] instanceof ParameterizedType) {
+          return ((ParameterizedType) types[0]).getActualTypeArguments();
+        }
+        return null;
+      }
+
+      static public Type[] getGenericType(Class<?> target) {
+        if (target == null)
+          return new Type[0];
+        Type[] types = target.getGenericInterfaces();
+        if (types.length > 0) {
+          return types;
+        }
+        Type type = target.getGenericSuperclass();
+        if (type != null) {
+          if (type instanceof ParameterizedType) {
+            return new Type[] { type };
+          }
+        }
+        return new Type[0];
+      }
     @SuppressWarnings("unchecked")
 	public static <T> T[] toArray(Iterable<T> iterable){
         Vector<T> vec = toVector(iterable);
@@ -685,7 +763,7 @@ public class Delegates {
     	Iterator<KeyValuePair<T1,T2>> ret =  new Iterator<KeyValuePair<T1,T2>>() {
 
             private boolean   inited           = false;
-            Property<Boolean> entryHasNext     = new Property<Boolean>();
+            
             Iterator<T2>      nestedIterator = null;
             T1 current;
             @Override
@@ -699,7 +777,7 @@ public class Delegates {
                 boolean nestedIteratorNeedNext = false;
                 if (nestedIterator == null || !nestedIterator.hasNext()) {
                     nestedIteratorNeedNext = true;
-                    entryHasNext.hasValue = false;
+                    
                     nestedIterator = null;
                 }
                 if (nestedIteratorNeedNext) {
@@ -862,8 +940,12 @@ public class Delegates {
     			});
     			cor.addInstruction((pthis) -> {
 					T val = iter.next();
-					if(accept != null && accept.Invoke(val)) {
-						pthis.yield(val);	
+					if(accept == null) {
+						pthis.yield(val);
+					} else {
+						if(accept.Invoke(val)) {
+							pthis.yield(val);	
+						}
 					}
 					
 				});

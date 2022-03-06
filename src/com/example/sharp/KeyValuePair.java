@@ -5,6 +5,13 @@ import java.util.Map;
 public class KeyValuePair<K extends Object,V extends Object> implements Map.Entry<K, V>{
     public K Key;
     public V Value;
+    /**
+     * to tuple2
+     * @return
+     */
+    public Tuples.Tuple2<K,V> tuple(){
+    	return Tuples.tuple(Key, Value);
+    }
     public static <K,V> KeyValuePair<K,V> newInstance(K k, V v){
     	return new KeyValuePair<K,V>(k,v);
     }

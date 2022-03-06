@@ -1,7 +1,5 @@
 package com.example.sharp;
 
-
-
 /**
  * boost-alike Tuple for bounding multiple types of items inline
  *

@@ -1,13 +1,13 @@
 package com.example.sharp;
 
-import com.example.events.Var;
+import com.example.events.WritableValue;
 
 /**
  * an adapter to implement property in c# a property provides getter and setter
  * which can be overridden.
  *
  */
-public class Property<T extends Object> extends Var<T> implements IProperty<T> {
+public class Property<T extends Object> extends WritableValue<T> implements IProperty<T> {
 
     @Override
     public T get() {

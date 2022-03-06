@@ -21,8 +21,8 @@ import com.example.events.INotificationEventArgs;
  */
 public class LRUDictionary<K,V> {
 	int capacity;
-	Dictionary<K, KeyValuePair<LinkedListNode<K>, V>> dict = new Dictionary<>();
-	LinkedList<K> list = new LinkedList<>();
+	Dictionary<K, KeyValuePair<BaseLinkedListNode<K>, V>> dict = new Dictionary<>();
+	BaseLinkedList<K> list = new BaseLinkedList<>();
 	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemAdded = dict.ItemAdded.route();
 	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg2<K,V>>> BeforeRemoveItem = new EventDelegate<>();
 	public final EventDelegate<INotification<INotificationEventArgs.INotificationEventArg1<K>>> ItemRemoved = dict.ItemRemoved.route();
@@ -109,7 +109,7 @@ public class LRUDictionary<K,V> {
 	 * @return value
 	 */
 	public V get(K k) {
-		KeyValuePair<LinkedListNode<K>, V> kv = null;
+		KeyValuePair<BaseLinkedListNode<K>, V> kv = null;
 		if(dict.ContainsKey(k)) {
 			kv=dict.get(k);
 			kv.Key.Remove();
@@ -126,7 +126,7 @@ public class LRUDictionary<K,V> {
 	 * @return value if available, or null
 	 */
 	public V remove(K k) {
-		KeyValuePair<LinkedListNode<K>, V> kv = null;
+		KeyValuePair<BaseLinkedListNode<K>, V> kv = null;
 		if(dict.ContainsKey(k)) {
 			kv=dict.get(k);
 			kv.Key.Remove();
@@ -144,14 +144,14 @@ public class LRUDictionary<K,V> {
 	 * @return new value 
 	 */
 	public V set(K k,V v) {
-		KeyValuePair<LinkedListNode<K>, V> kv = null;
+		KeyValuePair<BaseLinkedListNode<K>, V> kv = null;
 		if(dict.ContainsKey(k)) {
 			kv=dict.get(k);
 			kv.Key.Remove();
 			kv.Value = v;
 		} else {
 			if(list.Count.get()+1 > capacity) {
-				LinkedListNode<K> victim = list.RemoveFirst();
+				BaseLinkedListNode<K> victim = list.RemoveFirst();
 				if(victim != null) {
 					kv = dict.get(victim.Value);
 					if(kv != null) {

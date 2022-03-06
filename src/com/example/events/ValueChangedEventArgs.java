@@ -1,12 +1,12 @@
 package com.example.events;
 
-
 /**
  * a value changed event argument for Var<T>.valueChanged Event.
  *
  * @param <T> data type.
  */
 public class ValueChangedEventArgs<T extends Object> extends INotificationEventArgs.INotificationEventArg1<T>{
+	
 	public T originValue;
 	public T newValue;
 	//// reject the change?

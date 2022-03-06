@@ -1,10 +1,12 @@
 package com.example.events;
 
-
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Vector;
 
+import com.example.sharp.BaseLinkedList;
+import com.example.sharp.BaseLinkedListNode;
 import com.example.sharp.Delegates;
+import com.example.sharp.Tracer;
 
 
 /**
@@ -85,8 +87,8 @@ public class EventDelegate<T extends INotification> {
 	public static <T1,T2,T3,T4,T5,T6,T7,T8> INotificationEventArgs.INotificationEventArg8<T1,T2,T3,T4,T5,T6,T7,T8> args(T1 v1, T2 v2,T3 v3,T4 v4,T5 v5,T6 v6,T7 v7,T8 v8){
 		return new INotificationEventArgs.INotificationEventArg8<T1,T2,T3,T4,T5,T6,T7,T8>(v1,v2,v3,v4,v5,v6,v7,v8);
 	}
-    Vector<T> invocationList = new Vector<>();
-    HashMap<T, T> removedAfterInvoke = new HashMap<>();
+    BaseLinkedList<T> invocationList = new BaseLinkedList<>();
+    LinkedHashMap<T, T> removedAfterInvoke = new LinkedHashMap<>();
     EventDelegate me;
     public EventDelegate(){
     	me = this;
@@ -101,6 +103,7 @@ public class EventDelegate<T extends INotification> {
 	 * @return true if listener is empty
 	 */
     public synchronized boolean isEmpty() {
+        if(this.invocationList == null) return true;
     	return invocationList.isEmpty();
     }
     
@@ -110,7 +113,7 @@ public class EventDelegate<T extends INotification> {
 	 * 
 	 * @return invocation list
 	 */
-    public synchronized  Vector<T> getInvocationList(){
+    public synchronized  BaseLinkedList<T> getInvocationList(){
         return invocationList;
     }
 
@@ -130,6 +133,7 @@ public class EventDelegate<T extends INotification> {
 	 * @return assigned event handler
 	 */
     public synchronized T addDelegate(T t, boolean removeAfterInvoke){
+    	if(invocationList == null) return t;
     	invocationList.add(t);
     	if(removeAfterInvoke) {
             removedAfterInvoke.put(t, t);
@@ -152,8 +156,9 @@ public class EventDelegate<T extends INotification> {
 	 * clear all EventHandler
 	 */
     public synchronized void clear(){
+        if(this.invocationList == null) return;
     	invocationList.clear();
-		invocationList = new Vector<>();
+		invocationList = new BaseLinkedList<>();
     }
 
 	/**
@@ -169,22 +174,26 @@ public class EventDelegate<T extends INotification> {
 			return;
 		}
 		invoking=true;
-        Vector<T> clone = getInvocationList();
-    	try {
-    		Vector<T> del = new Vector<>();
-	        for(int i=0; i<clone.size(); ++i){	        
-	            T t = clone.get(i);
-	            t.perform(sender,args);
-	            if(removedAfterInvoke.size()>0 && removedAfterInvoke.containsKey(t)) {
-	            	del.add(t);
-	            }
-	        }
-	        for(T t:del) {
-	        	removeDelegate(t);
-	        }
-    	}catch(Exception ee) {
-    		ee.printStackTrace();
-    	}
+		BaseLinkedList<T> clone = getInvocationList();
+		if(clone != null) {
+        	try {
+        		Vector<BaseLinkedListNode<T>> del = new Vector<>();
+        		
+        		for(BaseLinkedListNode<T> i=clone.First.get(); i!=null; i=i.Next) {
+        		    T t = i.Value;
+                    t.perform(sender,args);
+                    if(removedAfterInvoke.size()>0 && removedAfterInvoke.containsKey(t)) {
+                        del.add(i);
+                    }    
+        		}
+    	        
+    	        for(BaseLinkedListNode<T> tNode:del) {
+    	        	tNode.Remove();
+    	        }
+        	}catch(Exception ee) {
+        		Tracer.D(ee);
+        	}
+		}
     	invoking=false;
     }
 	/**
@@ -194,6 +203,7 @@ public class EventDelegate<T extends INotification> {
 	 * @param args   Arguments for event.
 	 */
     public void invoke(Object sender,Object... args){
+        if(this.invocationList == null) return;
         INotificationEventArgs arglist = new INotificationEventArgs();
         arglist.object = args;
         this.invoke(sender,arglist);
@@ -233,7 +243,7 @@ public class EventDelegate<T extends INotification> {
     		   onDisposed.Invoke();
     		   onDisposed=null;
     		}catch(Exception ee) {
-    			ee.printStackTrace();
+    			Tracer.D(ee);
     		}
     	}
     }

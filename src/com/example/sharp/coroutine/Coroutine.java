@@ -1,15 +1,19 @@
 package com.example.sharp.coroutine;
+
+
+import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.StringTokenizer;
 import java.util.Vector;
 
 import com.example.events.Var;
+import com.example.sharp.BaseLinkedList;
 import com.example.sharp.CString;
 import com.example.sharp.Delegates;
 import com.example.sharp.Delegates.Action1;
 import com.example.sharp.Delegates.IterableEx;
 import com.example.sharp.Delegates.IteratorEx;
-import com.example.sharp.LinkedList;
 import com.example.sharp.Tracer;
 
 
@@ -34,6 +38,14 @@ public class Coroutine {
 		}
 		public CompositeBlock run(Delegates.Action1<Coroutine> ins) {
 			this.body=ins;
+			return this;
+		}
+	}
+	public static class ForeachBody<T> extends CompositeBlock{
+		public CompositeBlock run(Delegates.Action2<Coroutine,T> ins) {
+			this.body=(x)->{
+				ins.Invoke(x,x.getValue("Value"));
+			};
 			return this;
 		}
 	}
@@ -234,8 +246,80 @@ public class Coroutine {
 		}
 	}
 
-	LinkedList<Integer> ipLoopEnd = new LinkedList<Integer>();
-	LinkedList<Integer> ipLoopStart = new LinkedList<Integer>();
+	BaseLinkedList<Integer> ipLoopEnd = new BaseLinkedList<Integer>();
+	BaseLinkedList<Integer> ipLoopStart = new BaseLinkedList<Integer>();
+	/**
+	 * foreach string
+	 * @param <T>
+	 * @param iterator
+	 * @return
+	 */
+	public ForeachBody<String> Foreach(StringTokenizer arr) {
+		return Foreach(Delegates.forall(arr));
+	}
+	/**
+	 * foreach loop
+	 * @param <T>
+	 * @param iterator
+	 * @return
+	 */
+	public <T> ForeachBody<T> Foreach(Enumeration<T> arr) {
+		return Foreach(Delegates.forall(arr));
+	}
+	/**
+	 * foreach loop
+	 * @param <T>
+	 * @param iterator
+	 * @return
+	 */
+	public <T> ForeachBody<T> Foreach(T[] arr) {
+		return Foreach(Delegates.forall(arr));
+	}
+	/**
+	 * foreach loop
+	 * @param <T>
+	 * @param iterator
+	 * @return
+	 */
+	public <T> ForeachBody<T> Foreach(Iterable<T> iterable) {
+		return Foreach(iterable.iterator());
+	}
+	/**
+	 * foreach loop
+	 * @param iterator iterator to perform foreach coroutine
+	 * @return
+	 */
+	public <T> ForeachBody<T> Foreach(Iterator<T> iterator) {
+		Var<Integer> breakLoop = new Var<>();
+		ForeachBody<T> ret = new ForeachBody<T>();
+		Coroutine pthat=this.push();
+		ret.parent = pthat;
+		
+		int loopPos = pthat.addInstruction((cor)->{
+			if(!iterator.hasNext()) {
+				cor.jmp(breakLoop.get());
+				return;
+			}
+		});
+		pthat.addInstruction((cor)->{
+			try {
+				// While Loop Body
+				if(ret.body!=null) {
+				    cor.setValue("Value", iterator.next());
+				    ret.body.Invoke(cor);
+				}
+			}catch(Exception ee) {
+				Tracer.D(ee);
+				cor.stop();
+			}
+		});
+		pthat.addInstruction((cor)->cor.jmp(loopPos));
+		int endloop=pthat.addInstruction((cor)->{
+		});
+		breakLoop.set(endloop);
+		ret.ip = loopPos;
+		return ret;
+	}
 	/**
 	 * while loop
 	 * @param cond
