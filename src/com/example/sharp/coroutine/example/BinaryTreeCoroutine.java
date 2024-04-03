@@ -1,9 +1,9 @@
 package com.example.sharp.coroutine.example;
 
+import com.example.sharp.coroutine.Coroutine;
+
 import java.util.Comparator;
 import java.util.Iterator;
-
-import com.example.sharp.coroutine.Coroutine;
 
 public class BinaryTreeCoroutine {
 

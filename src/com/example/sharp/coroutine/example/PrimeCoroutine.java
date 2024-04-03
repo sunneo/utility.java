@@ -1,10 +1,10 @@
 package com.example.sharp.coroutine.example;
 
+import com.example.sharp.coroutine.Coroutine;
+
 import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.Vector;
-
-import com.example.sharp.coroutine.Coroutine;
 
 public class PrimeCoroutine implements Iterator<BigInteger> {
 	Vector<BigInteger> primes = new Vector<BigInteger>();

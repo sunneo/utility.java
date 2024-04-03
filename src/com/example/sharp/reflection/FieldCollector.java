@@ -138,6 +138,52 @@ public class FieldCollector {
             return false;
         return fields.get(name).isPublic();
     }
+    public boolean isTransient(String name){
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isTransient();
+    }
+    public boolean isEnum(String name){
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isEnum();
+    }
+    public boolean isPrimitive(String name){
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isPrimitive();
+    }
+    public boolean isBoolean(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isBoolean();
+    }
+    public boolean isInteger(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isInteger();
+    }
+    public boolean isDouble(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isDouble();
+    }
+    public boolean isString(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isString();
+    }
+    public boolean isFloat(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isFloat();
+    }
+
+    public boolean isShort(String name) {
+        if (!fields.containsKey(name))
+            return false;
+        return fields.get(name).isShort();
+    }
 
     /**
      * set arbitrary value to given field name.

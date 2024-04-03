@@ -1,9 +1,9 @@
 package com.example.sharp.coroutine.example;
 
+import com.example.sharp.coroutine.Coroutine;
+
 import java.math.BigInteger;
 import java.util.Iterator;
-
-import com.example.sharp.coroutine.Coroutine;
 
 public class FibbonaciCoroutine implements Iterator<BigInteger> {
 	BigInteger[] bucket = { new BigInteger("1"), new BigInteger("1"), new BigInteger("0") };

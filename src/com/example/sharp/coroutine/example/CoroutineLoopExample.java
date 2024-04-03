@@ -2,7 +2,6 @@ package com.example.sharp.coroutine.example;
 
 import com.example.events.Var;
 import com.example.sharp.Delegates;
-import com.example.sharp.Delegates.IterableEx;
 import com.example.sharp.coroutine.Coroutine;
 
 public class CoroutineLoopExample {
@@ -15,7 +14,7 @@ public class CoroutineLoopExample {
 	 * 3 level nested for loop as generator
 	 * @return
 	 */
-	public static IterableEx<Integer> integerCreator(){
+	public static Delegates.IterableEx<Integer> integerCreator(){
     	Coroutine cor = new Coroutine();
     	Var<Integer> i = new Var<>();
     	cor.For((ins)->i.set(0), ()->i.get()<1000*1000, (ins)->i.set(i.get()+1000)).run((ins)->{

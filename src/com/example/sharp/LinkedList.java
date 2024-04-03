@@ -10,7 +10,7 @@ import com.example.events.INotificationEventArgs;
  */
 @SuppressWarnings("rawtypes")
 public class LinkedList<T extends Object> extends BaseLinkedList<T>{
-	public static interface NodeChangedEventHandler<T> extends INotification<INotificationEventArgs.INotificationEventArg1<LinkedListNode<T>>>{}
+	public static interface NodeChangedEventHandler<T> extends INotification<INotificationEventArgs.INotificationEventArg1<LinkedListNode<T>>> {}
 	
     public void dispose() {
     	super.dispose();

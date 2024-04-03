@@ -1,9 +1,11 @@
 package com.example.sharp.reflection;
 
+import com.example.sharp.Tracer;
+
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
-import com.example.sharp.Tracer;
 public class MethodWrapper {
     public Object targetObject;
     public Method method;
@@ -23,6 +25,6 @@ public class MethodWrapper {
     }
 
     public boolean isPublic() {
-        return method.getModifiers() == Member.PUBLIC;
+        return Modifier.isPublic(method.getModifiers());
     }
 }

@@ -1,9 +1,10 @@
 package com.example.sharp;
 
-import java.util.TimerTask;
-
 import com.example.android.IUiThreadRunner;
 import com.example.events.EventDelegate;
+import com.example.events.INotificationEventArgs;
+
+import java.util.TimerTask;
 
 /**
  * TimerWrapper as System.Windows.Forms.Timer in C# usage:
@@ -38,7 +39,7 @@ public class Timer {
         if (origEnabled) {
             start();
         }
-        ValueChanged.invoke(this, new com.example.events.INotificationEventArgs());
+        ValueChanged.invoke(this, new INotificationEventArgs());
     }
 
     public synchronized void start() {

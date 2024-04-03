@@ -4,10 +4,7 @@ import java.util.List;
 import java.util.Vector;
 
 import com.example.Locked;
-import com.example.sharp.Delegates.Action1;
-import com.example.sharp.Delegates.Action2;
-import com.example.sharp.Delegates.Action3;
-import com.example.sharp.coroutine.AsyncTask.ThisAction;
+import com.example.sharp.Delegates;
 
 /**
  * parallels, usage:
@@ -33,8 +30,8 @@ public class Parallelx {
 	public static Integer Concurrency = Runtime.getRuntime().availableProcessors();
 
 	public Vector<AsyncTask> RuntimeLoadBalanceFor(Integer lowerBound, Integer upperBound,
-			Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
-			boolean wait) {
+												   Delegates.Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
+												   boolean wait) {
 		Vector<AsyncTask> ret = new Vector<AsyncTask>();
 		Object locker = new Object();
 		final Locked<Integer> sharedIdx = new Locked<>(lowerBound);
@@ -70,8 +67,8 @@ public class Parallelx {
 	}
 
 	private void BlockedParitionRunner(Integer start, Integer end,
-			Action3<Integer, CancellationTokenSource, Integer> action, Integer threadid,
-			CancellationTokenSource cancellationSource) {
+									   Delegates.Action3<Integer, CancellationTokenSource, Integer> action, Integer threadid,
+									   CancellationTokenSource cancellationSource) {
 		for (Integer i = start; i < end; ++i) {
 			if (cancellationSource != null && cancellationSource.IsCancellationRequested) {
 				break;
@@ -81,8 +78,8 @@ public class Parallelx {
 	}
 
 	private void CyclicParitionRunner(Integer start, Integer end, Integer step,
-			Action3<Integer, CancellationTokenSource, Integer> action, Integer threadid,
-			CancellationTokenSource cancellationSource) {
+									  Delegates.Action3<Integer, CancellationTokenSource, Integer> action, Integer threadid,
+									  CancellationTokenSource cancellationSource) {
 		for (Integer i = start; i < end; i += step) {
 			if (cancellationSource != null && cancellationSource.IsCancellationRequested) {
 				break;
@@ -92,8 +89,8 @@ public class Parallelx {
 	}
 
 	public Vector<AsyncTask> CyclicPartitionFor(Integer lowerBound, Integer upperBound,
-			Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
-			boolean wait) {
+												Delegates.Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
+												boolean wait) {
 		Integer len = upperBound - lowerBound + 1;
 		Integer threadCount = Concurrency;
 		Integer partLen = len / threadCount;
@@ -125,8 +122,8 @@ public class Parallelx {
 	}
 
 	public Vector<AsyncTask> BlockedPartitionFor(Integer lowerBound, Integer upperBound,
-			final Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
-			boolean wait) {
+												 final Delegates.Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
+												 boolean wait) {
 		Integer len = upperBound - lowerBound + 1;
 		Integer threadCount = Concurrency;
 		Integer partLen = len / threadCount;
@@ -163,9 +160,9 @@ public class Parallelx {
 	}
 
 	public Vector<AsyncTask> BlockedPartitionFor(Integer lowerBound, Integer upperBound,
-			final Action2<Integer, CancellationTokenSource> action, boolean wait) {
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
-				Integer arg3) -> {
+												 final Delegates.Action2<Integer, CancellationTokenSource> action, boolean wait) {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
+																					Integer arg3) -> {
 			action.Invoke(i, dummy);
 		};
 
@@ -173,40 +170,40 @@ public class Parallelx {
 	}
 
 	public Vector<AsyncTask> CyclicPartitionFor(Integer lowerBound, Integer upperBound,
-			Action2<Integer, CancellationTokenSource> action, boolean wait) {
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
-				Integer arg3) -> {
+												Delegates.Action2<Integer, CancellationTokenSource> action, boolean wait) {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
+																					Integer arg3) -> {
 			action.Invoke(i, dummy);
 		};
 		return CyclicPartitionFor(lowerBound, upperBound, actionProxy, null, wait);
 	}
 
-	public Vector<AsyncTask> BlockedPartitionFor(Integer lowerBound, Integer upperBound, final Action1<Integer> action,
+	public Vector<AsyncTask> BlockedPartitionFor(Integer lowerBound, Integer upperBound, final Delegates.Action1<Integer> action,
 			boolean wait) {
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
-				Integer arg3) -> {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
+																					Integer arg3) -> {
 			action.Invoke(i);
 
 		};
 		return BlockedPartitionFor(lowerBound, upperBound, actionProxy, null, wait);
 	}
 
-	public Vector<AsyncTask> BlockedPartitionFor(Integer upperBound, Action1<Integer> action, boolean wait) {
+	public Vector<AsyncTask> BlockedPartitionFor(Integer upperBound, Delegates.Action1<Integer> action, boolean wait) {
 		return BlockedPartitionFor(0, upperBound, action, wait);
 	}
 
 	public Vector<AsyncTask> CyclicPartitionFor(Integer upperBound,
-			final Action2<Integer, CancellationTokenSource> action, boolean wait) {
+												final Delegates.Action2<Integer, CancellationTokenSource> action, boolean wait) {
 		return CyclicPartitionFor(0, upperBound, action, wait);
 	}
 
-	public Vector<AsyncTask> CyclicPartitionFor(Integer upperBound, Action1<Integer> action, boolean wait) {
+	public Vector<AsyncTask> CyclicPartitionFor(Integer upperBound, Delegates.Action1<Integer> action, boolean wait) {
 		return CyclicPartitionFor(0, upperBound, action, wait);
 	}
 
-	public Vector<AsyncTask> CyclicPartitionFor(Integer lowerBound, Integer upperBound, Action1<Integer> action,
+	public Vector<AsyncTask> CyclicPartitionFor(Integer lowerBound, Integer upperBound, Delegates.Action1<Integer> action,
 			boolean wait) {
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = new Action3<Integer, CancellationTokenSource, Integer>() {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = new Delegates.Action3<Integer, CancellationTokenSource, Integer>() {
 			public void Invoke(Integer i, CancellationTokenSource dummy, Integer arg3) {
 				action.Invoke(i);
 			}
@@ -214,22 +211,22 @@ public class Parallelx {
 		return CyclicPartitionFor(lowerBound, upperBound, actionProxy, null, wait);
 	}
 
-	public Vector<AsyncTask> RuntimeLoadBalanceFor(Integer lowerBound, Integer upperBound, Action1<Integer> action,
+	public Vector<AsyncTask> RuntimeLoadBalanceFor(Integer lowerBound, Integer upperBound, Delegates.Action1<Integer> action,
 			boolean wait) {
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
-				Integer arg3) -> {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = (Integer i, CancellationTokenSource dummy,
+																					Integer arg3) -> {
 			action.Invoke(i);
 
 		};
 		return RuntimeLoadBalanceFor(lowerBound, upperBound, actionProxy, null, wait);
 	}
 
-	public Vector<AsyncTask> RuntimeLoadBalanceFor(Integer upperBound, Action1<Integer> action, boolean wait) {
+	public Vector<AsyncTask> RuntimeLoadBalanceFor(Integer upperBound, Delegates.Action1<Integer> action, boolean wait) {
 		return RuntimeLoadBalanceFor(0, upperBound, action, wait);
 	}
 
 	public static Vector<AsyncTask> For(Integer lowerbound, Integer upperBound,
-			Action3<Integer, CancellationTokenSource, Integer> action, boolean wait, ParallelForScheduler scheduler) {
+										Delegates.Action3<Integer, CancellationTokenSource, Integer> action, boolean wait, ParallelForScheduler scheduler) {
 		switch (scheduler) {
 		default:
 		case Blocked:
@@ -246,8 +243,8 @@ public class Parallelx {
 	}
 
 	public static Vector<AsyncTask> For(Integer lowerbound, Integer upperBound,
-			Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
-			boolean wait, ParallelForScheduler scheduler) {
+										Delegates.Action3<Integer, CancellationTokenSource, Integer> action, CancellationTokenSource cancellationSource,
+										boolean wait, ParallelForScheduler scheduler) {
 		switch (scheduler) {
 		default:
 		case Blocked:
@@ -259,8 +256,8 @@ public class Parallelx {
 		}
 	}
 
-	public static Vector<AsyncTask> For(Integer lowerbound, Integer upperBound, Action1<Integer> action, boolean wait,
-			ParallelForScheduler scheduler) {
+	public static Vector<AsyncTask> For(Integer lowerbound, Integer upperBound, Delegates.Action1<Integer> action, boolean wait,
+										ParallelForScheduler scheduler) {
 		switch (scheduler) {
 		default:
 		case Blocked:
@@ -272,8 +269,8 @@ public class Parallelx {
 		}
 	}
 
-	public static Vector<AsyncTask> For(Integer upperBound, Action1<Integer> action, boolean wait,
-			ParallelForScheduler scheduler) {
+	public static Vector<AsyncTask> For(Integer upperBound, Delegates.Action1<Integer> action, boolean wait,
+										ParallelForScheduler scheduler) {
 		switch (scheduler) {
 		default:
 		case Blocked:
@@ -286,9 +283,9 @@ public class Parallelx {
 
 	}
 
-	public static <T> Vector<AsyncTask> Foreach(final List<T> upperBound, final Action1<T> action, boolean wait,
-			ParallelForScheduler scheduler) {
-		Action1<Integer> actionProxy = (i) -> {
+	public static <T> Vector<AsyncTask> Foreach(final List<T> upperBound, final Delegates.Action1<T> action, boolean wait,
+												ParallelForScheduler scheduler) {
+		Delegates.Action1<Integer> actionProxy = (i) -> {
 			action.Invoke(upperBound.get(i));
 		};
 		switch (scheduler) {
@@ -302,10 +299,10 @@ public class Parallelx {
 		}
 	}
 
-	public static Vector<AsyncTask> Foreach(List upperBound, final Action2<Object, Integer> action, boolean wait,
-			ParallelForScheduler scheduler) {
+	public static Vector<AsyncTask> Foreach(List upperBound, final Delegates.Action2<Object, Integer> action, boolean wait,
+											ParallelForScheduler scheduler) {
 
-		Action3<Integer, CancellationTokenSource, Integer> actionProxy = new Action3<Integer, CancellationTokenSource, Integer>() {
+		Delegates.Action3<Integer, CancellationTokenSource, Integer> actionProxy = new Delegates.Action3<Integer, CancellationTokenSource, Integer>() {
 			public void Invoke(Integer i, CancellationTokenSource dummy, Integer id) {
 				action.Invoke(upperBound.get(i), id);
 			}

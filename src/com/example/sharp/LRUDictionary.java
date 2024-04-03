@@ -1,10 +1,10 @@
 package com.example.sharp;
 
-import java.util.Vector;
-
 import com.example.events.EventDelegate;
 import com.example.events.INotification;
 import com.example.events.INotificationEventArgs;
+
+import java.util.Vector;
 
 /**
  * A dictionary with LRU(least recently used) algorithm.

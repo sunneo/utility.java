@@ -1,21 +1,17 @@
 package com.example.sharp.coroutine;
 
 
+import com.example.events.Var;
+import com.example.sharp.BaseLinkedList;
+import com.example.sharp.CString;
+import com.example.sharp.Delegates;
+import com.example.sharp.Tracer;
+
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.Vector;
-
-import com.example.events.Var;
-import com.example.sharp.BaseLinkedList;
-import com.example.sharp.CString;
-import com.example.sharp.Delegates;
-import com.example.sharp.Delegates.Action1;
-import com.example.sharp.Delegates.IterableEx;
-import com.example.sharp.Delegates.IteratorEx;
-import com.example.sharp.Tracer;
-
 
 
 /**
@@ -55,7 +51,7 @@ public class Coroutine {
 	 * @param clz class to hint java adopt as base type for casting
 	 * @return
 	 */
-	public <T> IterableEx<T> iterable(Class<T> clz){
+	public <T> Delegates.IterableEx<T> iterable(Class<T> clz){
 		return Delegates.forall(iterator());
 	}
 	/**
@@ -63,7 +59,7 @@ public class Coroutine {
 	 * @param <T>
 	 * @return
 	 */
-	public <T> IterableEx<T> iterable(){
+	public <T> Delegates.IterableEx<T> iterable(){
 		return Delegates.forall(iterator());
 	}
 	/**
@@ -72,7 +68,7 @@ public class Coroutine {
 	 * @param clz
 	 * @return
 	 */
-	public <T> IteratorEx<T> iterator(Class<T> clz){
+	public <T> Delegates.IteratorEx<T> iterator(Class<T> clz){
 		return iterator();
 	}
 	/**
@@ -80,7 +76,7 @@ public class Coroutine {
 	 * @param <T>
 	 * @return
 	 */
-	public <T> IteratorEx<T> iterator(){
+	public <T> Delegates.IteratorEx<T> iterator(){
 		
 		return Delegates.iterator(new Iterator<T>() {
 			boolean tested = false;
@@ -109,7 +105,7 @@ public class Coroutine {
 		});
 	}
 
-	public Vector<Action1<Coroutine>> instructions = new Vector<Action1<Coroutine>>();
+	public Vector<Delegates.Action1<Coroutine>> instructions = new Vector<Delegates.Action1<Coroutine>>();
 	public Hashtable<String, Object> globals = new Hashtable<String, Object>();
 	public Hashtable<String, Integer> labels = new Hashtable<String, Integer>();
 	static long seriesId = Long.MIN_VALUE;
@@ -137,17 +133,17 @@ public class Coroutine {
 	 *
 	 * @param r action which is invoked with self
 	 */
-	public Coroutine(Action1<Coroutine> r) {
+	public Coroutine(Delegates.Action1<Coroutine> r) {
 		r.Invoke(this);
 	}
 
-	public Coroutine push(Action1<Coroutine> r) {
+	public Coroutine push(Delegates.Action1<Coroutine> r) {
 		next = new Coroutine(r);
 		next.parent = this;
 		return next;
 	}
 
-	public Coroutine push(String name, Action1<Coroutine> r) {
+	public Coroutine push(String name, Delegates.Action1<Coroutine> r) {
 		Coroutine ret = push(r);
 		ret.setName(name);
 		return ret;
@@ -220,7 +216,7 @@ public class Coroutine {
 	 * @param ins an instruction with param to this
 	 * @return new instruction pointer
 	 */
-	public int addInstruction(Action1<Coroutine> ins) {
+	public int addInstruction(Delegates.Action1<Coroutine> ins) {
 		int idx = instructions.size();
 		instructions.add(ins);
 		return idx;
@@ -403,7 +399,7 @@ public class Coroutine {
 	 * @param ins   an instruction with param to this
 	 * @return new instruction pointer
 	 */
-	public int addInstruction(String label, Action1<Coroutine> ins) {
+	public int addInstruction(String label, Delegates.Action1<Coroutine> ins) {
 		int idx = instructions.size();
 		instructions.add(ins);
 		if (labels.containsKey(label)) {
@@ -521,7 +517,7 @@ public class Coroutine {
 			state = State.Run;
 		}
 		if (state != State.Stop && ip < instructions.size()) {
-			Action1<Coroutine> instruction = instructions.get(ip);
+			Delegates.Action1<Coroutine> instruction = instructions.get(ip);
 			++ip;
 			instruction.Invoke(this);
 			if (ip == instructions.size()) {

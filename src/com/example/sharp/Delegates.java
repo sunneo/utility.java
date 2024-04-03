@@ -744,7 +744,7 @@ public class Delegates {
     }
     
     public static <T1, T2> IterableEx<KeyValuePair<T1,T2>> EnumerateNestedIterator(IterableEx<T1> p1, Func1<T1, IterableEx<T2>> iteratorGenerator) {
-    	return Delegates.forall(
+    	return forall(
      			  EnumerateNestedIterator(p1.iterator(), (val)->iteratorGenerator.Invoke(val).iterator())
     		   );
     }

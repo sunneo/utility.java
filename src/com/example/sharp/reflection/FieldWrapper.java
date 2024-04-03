@@ -1,9 +1,10 @@
 package com.example.sharp.reflection;
 
+import com.example.sharp.Tracer;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
-
-import com.example.sharp.Tracer;
+import java.lang.reflect.Modifier;
 
 public class FieldWrapper {
     public Object targetObject;
@@ -86,6 +87,37 @@ public class FieldWrapper {
     }
 
     public boolean isPublic() {
-        return field.getModifiers() == Member.PUBLIC;
+        return Modifier.isPublic(field.getModifiers());
+    }
+
+    public boolean isTransient() {
+        return Modifier.isTransient(field.getModifiers());
+    }
+
+    public boolean isPrimitive() {
+        return field!=null && field.getType().isPrimitive();
+    }
+    public boolean isBoolean() {
+        return field!=null && field.getType().equals(Boolean.class);
+    }
+    public boolean isInteger() {
+        return field!=null && field.getType().equals(Integer.class);
+    }
+    public boolean isDouble() {
+        return field!=null && field.getType().equals(Double.class);
+    }
+    public boolean isString() {
+        return field!=null && field.getType().equals(String.class);
+    }
+    public boolean isFloat() {
+        return field!=null && field.getType().equals(Float.class);
+    }
+
+    public boolean isShort() {
+        return field!=null && field.getType().equals(Short.class);
+    }
+
+    public boolean isEnum() {
+        return field!=null && field.getType().isEnum();
     }
 }
