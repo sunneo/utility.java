@@ -321,7 +321,7 @@ public class IniReader {
                         if(arrayLengthNameTag!=null){
                             arrayLengthName = arrayLengthNameTag.name();
                         }
-                        int count = reader.getInt(arrayLengthName,1024);
+                        int count = reader.getInt(name+"."+arrayLengthName,0);
                         if(count > 0) {
                             Object instances = null;
                             try {

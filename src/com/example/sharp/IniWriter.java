@@ -160,10 +160,15 @@ public class IniWriter {
     }
 
     public static String SerializetoString(Object o) {
-        IniWriter writer = new IniWriter();
-        writer.StartIniLineWriter("");
-        writer.Serialize(o);
-        return writer.toString();
+        try {
+            IniWriter writer = new IniWriter();
+            writer.StartIniLineWriter("");
+            writer.Serialize(o);
+            return writer.toString();
+        }catch(Exception ee){
+            ee.printStackTrace();
+            return "";
+        }
     }
 
     public static void SerializeToDictionary(Map<String, Object> dic, Object o) {
@@ -320,11 +325,15 @@ public class IniWriter {
                             // for case of
                             // SomeThing.Count=2
                             // SomeThing
-                            FlattenArrayLengthName arrayLengthName = (FlattenArrayLengthName) field.getAnnotation(FlattenArrayLengthName.class);
-                            if (arrayLengthName != null && !CString.IsNullOrEmpty(arrayLengthName.name())) {
+                            String arrayLengthName="Count";
+                            FlattenArrayLengthName arrayLengthNameTag = (FlattenArrayLengthName) field.getAnnotation(FlattenArrayLengthName.class);
+                            if (arrayLengthNameTag != null && !CString.IsNullOrEmpty(arrayLengthNameTag.name())) {
+                                arrayLengthName = arrayLengthNameTag.name();
+                            }
+                            if (!CString.IsNullOrEmpty(arrayLengthName)) {
                                 Class<?> elementType = fieldType.getComponentType();
                                 int len = Array.getLength(val);
-                                Write(arrayLengthName.name(), len);
+                                Write(name+"."+arrayLengthName, len);
 
                                 FlattenArrayName arrayName = (FlattenArrayName) field.getAnnotation(FlattenArrayName.class);
                                 for (int i = 0; i < len; ++i) {
