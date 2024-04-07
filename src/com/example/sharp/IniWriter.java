@@ -247,7 +247,17 @@ public class IniWriter {
         }
         this.Write(key, strb.toString());
     }
-
+    public void Write(String key, String[] val) {
+        StringBuilder strb = new StringBuilder();
+        for (int i = 0; i < val.length; ++i) {
+            String v = "\""+String.valueOf(val[i])+"\"";
+            strb.append(v);
+            if (i + 1 < val.length) {
+                strb.append(',');
+            }
+        }
+        this.Write(key, strb.toString());
+    }
     public void Write(String key, double[] val) {
         StringBuilder strb = new StringBuilder();
         for (int i = 0; i < val.length; ++i) {
@@ -289,6 +299,14 @@ public class IniWriter {
                         } else if (fieldType.isEnum()) {
                             Write(name, val.toString());
                         }
+                    } else if (fieldType.equals(Integer.class)) {
+                        Write(name, (int) val);
+                    } else if (fieldType.equals(Boolean.class)) {
+                        Write(name, (boolean) val);
+                    } else if (fieldType.equals(Double.class)) {
+                        Write(name, (double) val);
+                    } else if (fieldType.isEnum()) {
+                        Write(name, val.toString());
                     } else if (fieldType.equals(String.class)) {
                         Write(name, (String) val);
                     } else if (fieldType.isArray()) {
@@ -296,6 +314,8 @@ public class IniWriter {
                             Write(name, (int[]) val);
                         } else if (fieldType.getComponentType().equals(Double.class)) {
                             Write(name, (double[]) val);
+                        } else if (fieldType.getComponentType().equals(String.class)) {
+                            Write(name, (String[]) val);
                         } else {
                             // for case of
                             // SomeThing.Count=2
@@ -307,7 +327,6 @@ public class IniWriter {
                                 Write(arrayLengthName.name(), len);
 
                                 FlattenArrayName arrayName = (FlattenArrayName) field.getAnnotation(FlattenArrayName.class);
-
                                 for (int i = 0; i < len; ++i) {
                                     String flattenArrayName = name + "[" + Integer.toString(i) + "].";
                                     if (arrayName != null && !CString.IsNullOrEmpty(arrayName.name()) && !CString.IsNullOrEmpty(arrayName.replacement())) {

@@ -30,6 +30,8 @@ import com.example.events.EventDelegate;
 import com.example.events.INotification;
 import com.example.events.INotificationEventArgs;
 import com.example.events.WritableValue;
+import com.example.sharp.annotations.FlattenArrayLengthName;
+import com.example.sharp.annotations.FlattenArrayName;
 import com.example.sharp.annotations.IniFieldNameAttribute;
 
 import java.io.BufferedReader;
@@ -37,6 +39,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.Reader;
 import java.io.StringReader;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -164,7 +167,7 @@ public class IniReader {
 
     }
 
-    public static class OnSerializeNotificationEventArgs  {
+    public static class OnSerializeNotificationEventArgs {
         public IniReader Reader;
         public Field Field;
         public String FullName;
@@ -238,8 +241,41 @@ public class IniReader {
                             ex.printStackTrace();
                         }
                     }
+                } else if (fieldType.equals(Integer.class)) {
+                    int val = reader.getInt(name);
+                    try {
+                        field.set(ret,val);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    FieldValue = val;
+                } else if (fieldType.equals(Boolean.class)) {
+                    boolean val = reader.getBoolean(name);
+                    try {
+                        field.set(ret,val);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
 
-                } else if (fieldType.equals(String.class)) {
+                    FieldValue = val;
+                } else if (fieldType.equals(Double.class)) {
+                    double val = reader.getDouble(name);
+                    try {
+                        field.set(ret,val);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    FieldValue = val;
+                } else if (fieldType.isEnum()) {
+                    try {
+                        String sval = reader.getString(name);
+                        field.set(ret, Enum.valueOf((Class<Enum>) fieldType, sval));
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }
+
+                else if (fieldType.equals(String.class)) {
                     String val = reader.getString(name);
                     try {
                         field.set(ret, val);
@@ -247,30 +283,76 @@ public class IniReader {
                         ex.printStackTrace();
                     }
                     FieldValue = val;
-                } else if (fieldType.isArray() && fieldType.getComponentType().equals(Double.class))
-                {
-                    String val = reader.getString(name);
-                    ArrayList<Double> intLinkedList = DoubleLinkedListFromString(val);
-                    Double[] arr = intLinkedList.toArray(new Double[0]);
-                    try {
-                        field.set(ret, arr);
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                } else if(fieldType.isArray()){
+                    Class<?> componentType=fieldType.getComponentType();
+                    if (componentType.equals(Double.class)) {
+                        String val = reader.getString(name);
+                        ArrayList<Double> intLinkedList = DoubleListFromString(val);
+                        Double[] arr = intLinkedList.toArray(new Double[0]);
+                        try {
+                            field.set(ret, arr);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                        FieldValue = arr;
+                    } else if (componentType.equals(String.class)) {
+                        String val = reader.getString(name);
+                        Vector<String> intLinkedList = CString.tokenize(val,",");
+                        String[] arr = Delegates.forall(intLinkedList).filter((x)->x!=null).translate((x)->CString.Trim(x,'"')).toArray();
+                        try {
+                            field.set(ret, arr);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                        FieldValue = arr;
+                    } else if (componentType.equals(Integer.class)) {
+                        String val = reader.getString(name);
+                        ArrayList<Integer> intLinkedList = IntLinkedListFromString(val);
+                        Integer[] arr = intLinkedList.toArray(new Integer[0]);
+                        try {
+                            field.set(ret, arr);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                        FieldValue = arr;
+                    } else {
+                        FlattenArrayLengthName arrayLengthNameTag = (FlattenArrayLengthName) field.getAnnotation(FlattenArrayLengthName.class);
+                        String arrayLengthName="Count";
+                        if(arrayLengthNameTag!=null){
+                            arrayLengthName = arrayLengthNameTag.name();
+                        }
+                        int count = reader.getInt(arrayLengthName,1024);
+                        if(count > 0) {
+                            Object instances = null;
+                            try {
+                                instances = Array.newInstance(componentType,count);
+                                field.set(ret, instances);
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+                            Constructor constructor = null;
+                            try{
+                                constructor = componentType.getConstructor();
+                            }catch(Exception ee){
+                                ee.printStackTrace();
+                            }
+                            if(count > 0 && constructor != null){
+                                for (int i = 0; i < count; ++i) {
+                                    String subObjectPrefix=name+"["+Integer.toString(i)+"].";
+
+                                    try {
+                                        Object instance = constructor.newInstance();
+                                        DeserializeFields(reader, instance,subObjectPrefix, OnSerializingMember);
+                                        Array.set(instances,i,instance);
+                                    }catch(Exception ee){
+                                        continue;
+                                    }
+                                }
+                            }
+
+                        }
                     }
-                    FieldValue = arr;
-                }
-                    else if (fieldType.isArray() && fieldType.getComponentType().equals(Integer.class))
-                {
-                    String val = reader.getString(name);
-                    ArrayList<Integer> intLinkedList = IntLinkedListFromString(val);
-                    Integer[] arr = intLinkedList.toArray(new Integer[0]);
-                    try {
-                        field.set(ret, arr);
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                    FieldValue = arr;
-                } else {
+                }  else {
                     Constructor<?> constructor = null;
                     try {
                         constructor = fieldType.getConstructor();
@@ -305,7 +387,7 @@ public class IniReader {
                     OnSerializeArgs.Section = reader.FieldSectionMapper.get(name);
                 }
                 if (OnSerializingMember != null) {
-                    OnSerializingMember.invoke(reader,OnSerializeArgs);
+                    OnSerializingMember.invoke(reader, OnSerializeArgs);
                 }
             }
         }
@@ -401,7 +483,7 @@ public class IniReader {
         return new ArrayList<Integer>();
     }
 
-    public static ArrayList<Double> DoubleLinkedListFromString(String val) {
+    public static ArrayList<Double> DoubleListFromString(String val) {
         if (val.indexOf(',') > -1) {
             Vector<String> splits = CString.tokenize(val, ",");
             ArrayList<Double> list = new ArrayList<Double>();
