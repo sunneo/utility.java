@@ -11,6 +11,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
@@ -108,6 +109,22 @@ public class JSON {
                     ((ArrayList)l).add(o);
                 });
                 return list;
+            } else if (subItemClz.equals(String.class)) {
+                return obj.getString(key);
+            } else if (subItemClz.equals(Integer.class)) {
+                return obj.getInt(key);
+            } else if (subItemClz.equals(Float.class)) {
+                return obj.getDouble(key);
+            } else if (subItemClz.equals(Double.class)) {
+                return obj.getDouble(key);
+            } else if (subItemClz.equals(Boolean.class)) {
+                return obj.getBoolean(key);
+            } else if (subItemClz.equals(Long.class)) {
+                return obj.getLong(key);
+            } else if (subItemClz.equals(Character.class)) {
+                return obj.getString(key).charAt(0);
+            } else if (subItemClz.equals(Short.class)) {
+                return obj.getInt(key);
             } else {
                 // object
                 Object subObject = subItemClz.newInstance();
@@ -119,18 +136,26 @@ public class JSON {
         }
         return null;
     }
-    protected static <T> void deserializeObject(JSONObject obj, T item){
+    protected static  void deserializeObject(JSONObject obj, Object item){
         ReflectionHelper reflection = new ReflectionHelper(item);
-        for(String key: Delegates.forall(obj.keys())){
+        
+        for(Object okey: Delegates.forall(obj.keys())){
+        	if(!(okey instanceof String)) {
+        		continue;
+        	}
+        	String key = (String)okey; 
             if(obj.isNull(key)) continue;
             if(!reflection.fields.containsField(key)) continue;
             if(!reflection.fields.isPublic(key)) continue;
             if(reflection.fields.isTransient(key)) continue;
             FieldWrapper fieldWrapper = reflection.fields.fields.get(key);
-
             Class<?> subItemClz = fieldWrapper.field.getType();
             try {
-                if(subItemClz.isPrimitive() || subItemClz.isEnum() || String.class.equals(subItemClz)) {
+                if(subItemClz.isPrimitive() || subItemClz.isEnum() || String.class.equals(subItemClz)
+                		|| subItemClz.equals(Integer.class) || subItemClz.equals(Short.class) || subItemClz.equals(Long.class)
+                		|| subItemClz.equals(Character.class) || subItemClz.equals(Double.class)
+                		|| subItemClz.equals(Float.class)
+                		|| subItemClz.equals(Boolean.class)) {
                     reflection.fields.set(key,deserializeGetObject(obj,subItemClz,key));
                 } else if(ArrayList.class.isAssignableFrom(subItemClz)){
                     reflection.fields.set(key,deserializeGetObject(obj,subItemClz,key));
@@ -140,7 +165,18 @@ public class JSON {
                     JSONArray arr = obj.getJSONArray(key);
                     Object list = Array.newInstance(subItemClz.getComponentType(),arr.length());
                     deserializeJSONArrayToRawArrayObject(arr, list, (l, idx,o)->{
-                        Array.set(l,idx,o);
+                    	try {
+                    		Object nestItem = o;
+                    		if(o instanceof JSONObject) {
+                    			nestItem = subItemClz.getComponentType().getConstructor().newInstance();
+    							deserializeObject((JSONObject)o,nestItem);
+                    		}
+							Array.set(l,idx,nestItem);
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+                        
                     });
                     reflection.fields.set(key,list);
                 } else {
@@ -154,7 +190,8 @@ public class JSON {
         }
     }
     protected static void serializeObject(JSONArray arr,  Object obj, BaseDictionary<Object,Object> visited){
-        if(obj.getClass().isArray()){
+    	Class<?> fieldType=obj.getClass();
+        if(fieldType.isArray()){
             int len = Array.getLength(obj);
             for(int i=0; i<len; ++i){
                 Object subItem = Array.get(obj,i);
@@ -165,8 +202,22 @@ public class JSON {
             for(Object subItem: iterable){
                 serializeObject(arr, subItem,visited);
             }
-        } else if(obj.getClass().isPrimitive() || obj instanceof String){
-            arr.put(obj);
+        }  else if(fieldType.equals(Long.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Integer.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Short.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Character.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Float.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Double.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(Boolean.class)) {
+        	arr.put(obj);
+        } else if(fieldType.equals(String.class)) {
+        	arr.put(obj);
         } else {
             JSONObject jsonObj = new JSONObject();
             serializeObject(jsonObj, obj, visited);
@@ -191,11 +242,28 @@ public class JSON {
                 continue;
             }
             try {
+            	Class<?> fieldType=reflect.fields.fields.get(key).field.getType();
                 if (reflect.fields.isPrimitive(key) || reflect.fields.isString(key)) {
                     json.put(key, subItem);
                 } else if (reflect.fields.isEnum(key)) {
                     json.put(key, reflect.fields.get(key).toString());
-                } else {
+                } else if(fieldType.equals(Long.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Integer.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Short.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Character.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Float.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Double.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(Boolean.class)) {
+                	json.put(key, subItem);
+                } else if(fieldType.equals(String.class)) {
+                	json.put(key, subItem);
+                }else {
                     if (subItem.getClass().isArray() || subItem instanceof Iterable) {
                         JSONArray arr = new JSONArray();
                         serializeObject(arr, subItem, visited);
