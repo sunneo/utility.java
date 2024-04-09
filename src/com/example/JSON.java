@@ -128,7 +128,7 @@ public class JSON {
             } else {
                 // object
                 Object subObject = subItemClz.newInstance();
-                deserializeObject(obj,subObject);
+                deserializeObject(obj.getJSONObject(key),subObject);
                 return subObject;
             }
         }catch(Exception ee){
@@ -138,7 +138,6 @@ public class JSON {
     }
     protected static  void deserializeObject(JSONObject obj, Object item){
         ReflectionHelper reflection = new ReflectionHelper(item);
-        
         for(Object okey: Delegates.forall(obj.keys())){
         	if(!(okey instanceof String)) {
         		continue;
@@ -179,6 +178,8 @@ public class JSON {
                         
                     });
                     reflection.fields.set(key,list);
+                } else if(subItemClz.equals(Object.class)) {
+                	 reflection.fields.set(key,obj.get(key));
                 } else {
                     // object
                     reflection.fields.set(key,deserializeGetObject(obj,subItemClz,key));

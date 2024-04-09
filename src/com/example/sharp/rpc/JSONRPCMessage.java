@@ -1,13 +1,42 @@
 package com.example.sharp.rpc;
 
 import com.example.events.WritableValue;
+
+import java.lang.reflect.Array;
+
+import org.json.JSONArray;
+
 import com.example.JSON;
 
 public class JSONRPCMessage {
+	public static class Arguments {
+		public Object[] args = new Object[0];
+
+		public void Assign(Object... args) {
+			if (args != null && args.length > 0) {
+				this.args = args;
+			}
+		}
+
+		public int GetInt(int idx) {
+			if (idx < args.length) {
+				return (int) args[idx];
+			}
+			return -1;
+		}
+
+		public double GetDouble(int idx) {
+			if (idx < args.length) {
+				return (double) args[idx];
+			}
+			return -1;
+		}
+
+	}
     public String method;
     public String version="1.0";
-    public Object result;
-    public Object[] params;
+    public Object Result;
+    public Arguments Params = new Arguments();
     public static boolean getBooleanObject(Object o) {
         if(o instanceof Boolean) {
             return ((Boolean)o).booleanValue();
@@ -89,49 +118,49 @@ public class JSONRPCMessage {
         return defaultVal;
     }
     public long getParamLong(int idx,long defaultVal) {
-        if(idx >= params.length || idx < 0) {
+        if(idx >= Params.args.length || idx < 0) {
             return defaultVal;
         }
-        return getLongObject(params[idx], defaultVal);
+        return getLongObject(Params.args[idx], defaultVal);
     }
     public int getParamInt(int idx, int defaultVal) {
-        if(idx >= params.length || idx < 0) {
+        if(idx >= Params.args.length || idx < 0) {
             return 0;
         }
-        return getIntegerObject(params[idx],defaultVal);
+        return getIntegerObject(Params.args[idx],defaultVal);
     }
     public double getParamDouble(int idx, double defaultVal) {
-        if(idx >= params.length || idx < 0) {
+        if(idx >= Params.args.length || idx < 0) {
             return 0;
         }
-        return getDoubleObject(params[idx],defaultVal);
+        return getDoubleObject(Params.args[idx],defaultVal);
     }
     public boolean getParamBool(int idx) {
-        if(idx >= params.length || idx < 0) {
+        if(idx >= Params.args.length || idx < 0) {
             return false;
         }
-        return getBooleanObject(params[idx]);
+        return getBooleanObject(Params.args[idx]);
     }
     public int getResultInt() {
-        if(result == null) {
+        if(Result == null) {
             return 0;
         }
-        return getIntegerObject(result, 0);
+        return getIntegerObject(Result, 0);
     }
     public double getResultDouble(int idx) {
-        if(result == null) {
+        if(Result == null) {
             return 0;
         }
-        return getDoubleObject(result, 0);
+        return getDoubleObject(Result, 0);
     }
     public boolean getResultBool(int idx) {
-        if(result == null) {
+        if(Result == null) {
             return false;
         }
-        return getBooleanObject(result);
+        return getBooleanObject(Result);
     }
     public JSONRPCMessage assignParam(Object...objects) {
-        this.params = objects;
+        this.Params.Assign(objects);
         return this;
     }
     
@@ -150,13 +179,13 @@ public class JSONRPCMessage {
         return refObj;
     }
     public JSONRPCRemoteObjectReference getRemoteObjectRefFromParam(int idx) {
-        if(params == null || idx >= params.length || idx < 0) {
+        if(Params == null || idx >= Params.args.length || idx < 0) {
             return getRemoteObjectRef(null);
         }
-        return getRemoteObjectRef(params[idx]);
+        return getRemoteObjectRef(Params.args[idx]);
     }
     public JSONRPCRemoteObjectReference getRemoteObjectRefFromResult() {
-        return getRemoteObjectRef(result);
+        return getRemoteObjectRef(Result);
     }
     
     public JSONRPCMessage() {

@@ -48,7 +48,7 @@ public class JSONRPC {
         public void send(JSONRPCMessage msg) {
             String txt = JSON.serialize(msg);
             try {
-                writer.write(txt);
+                writer.write(txt+"\n");
                 writer.flush();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -135,14 +135,14 @@ public class JSONRPC {
                         if(msg == null) continue;
                         if(CString.IsNullOrEmpty(msg.method)) {
                             // unable to handle
-                            msg.result=false;
+                            msg.Result=false;
                             rpc.send(msg);
                             continue;
                         }
                         if(!callbacks.containsKey(msg.method)) {
                             // unable to handle
                             rpc.send(msg);
-                            msg.result=false;
+                            msg.Result=false;
                             continue;
                         }
                         callbacks.get(msg.method).Invoke(rpc, msg);

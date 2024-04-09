@@ -1,17 +1,176 @@
 package com.example.sharp.coroutine;
 
 import com.example.android.IUiThreadRunner;
+import com.example.events.WritableValue;
+import com.example.sharp.BaseLinkedList;
 import com.example.sharp.CString;
 import com.example.sharp.Delegates;
 
 import java.util.Hashtable;
 import java.util.LinkedList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class AsyncTask {
 	public static interface ThisAction extends Delegates.Action1<AsyncTask>, Delegates.Action {
 
 	}
+	public static <T>  ThreadingFuture<T> runAsync(Delegates.Func<T> runnable) {
+		return runAsync("",runnable);
+	}
+	public static class ThreadingFuture<T> implements Future<T> {
+		protected String name;
+		WritableValue<Object> value = new WritableValue<>();
+		/**
+		 * locker
+		 */
+		Object locker = new Object();
+		/**
+		 * queue to hold planed tasks (added by thenRun)
+		 */
+		BaseLinkedList<Runnable> runnableQueues = new BaseLinkedList<Runnable>();
+		/**
+		 * job thread
+		 */
+		Thread thread = null;
+		volatile boolean started=false;
+		private void initThread() {
+			thread = new Thread(() -> {
+				try {
+					while(true) {
+						Runnable job = getJob();
+						if(job == null) break;
+						job.run();
+					}
+				} catch (Throwable throwable) {
 
+				}
+			});
+		}
+
+		/**
+		 * cancel job, this will clear all queued task
+		 * @param mayInterruptIfRunning interrupt when thread is running
+		 */
+		@Override
+		public boolean cancel(boolean mayInterruptIfRunning) {
+			clearJobs();
+			if (mayInterruptIfRunning) {
+				if (thread != null && thread.isAlive() && !thread.isInterrupted()) {
+					thread.interrupt();
+				}
+			}
+			value = new WritableValue<>();
+
+			return !thread.isAlive() || thread.isInterrupted();
+		}
+
+		@Override
+		public boolean isCancelled() {
+			return false;
+		}
+
+		@Override
+		public boolean isDone() {
+			return false;
+		}
+
+		/**
+		 * get a job from queue
+		 * @return queued job or null
+		 */
+		private Runnable getJob() {
+			Runnable ret=null;
+			synchronized(locker) {
+				if(runnableQueues.IsEmpty.get()) {
+					return null;
+				}
+				ret = runnableQueues.RemoveFirst().Value;
+			}
+			return ret;
+		}
+		/**
+		 * clear all job
+		 */
+		private void clearJobs() {
+			synchronized(locker) {
+				runnableQueues.Clear();
+				runnableQueues = new BaseLinkedList<Runnable>();
+			}
+		}
+
+		public <T2> ThreadingFuture<T2> thenRun(Delegates.Func1<T,T2> action) {
+
+			synchronized (locker) {
+				runnableQueues.AddLast(()->value.set(action.Invoke((T)value.get())));
+			}
+			if(!thread.isAlive() || !started) {
+				initThread();
+				start();
+			}
+			return (ThreadingFuture<T2>) this;
+		}
+		public ThreadingFuture<Void> thenRun(Runnable action) {
+			synchronized (locker) {
+				runnableQueues.AddLast(action);
+			}
+			if(!thread.isAlive() || !started) {
+				initThread();
+				start();
+			}
+			return (ThreadingFuture<Void>) this;
+		}
+
+		@Override
+		public T get() throws InterruptedException, ExecutionException {
+			if(!thread.isAlive() && !started) {
+				initThread();
+				start();
+				thread.join();
+			} else if(started){
+				thread.join();
+			}
+			return (T)value.get();
+		}
+
+		@Override
+		public T get(long l, TimeUnit timeUnit) throws ExecutionException, InterruptedException, TimeoutException {
+			if(!thread.isAlive() && !started) {
+				initThread();
+				start();
+				thread.join(timeUnit.toMillis(l));
+			} else if(started){
+				thread.join(timeUnit.toMillis(l));
+			}
+			return (T)value.get();
+		}
+
+		public ThreadingFuture(Delegates.Func<T> runnable) {
+			this(runnable,"");
+		}
+		public ThreadingFuture(Delegates.Func<T> runnable, String name) {
+			this.name = name;
+			runnableQueues.AddLast(()->value.set(runnable.Invoke()));
+			initThread();
+		}
+
+		public void start() {
+			if(CString.IsNullOrEmpty(name)) {
+				thread.setName("runAsync<T>"); //$NON-NLS-1$
+			} else {
+				thread.setName(name);
+			}
+			thread.start();
+			started=true;
+		}
+	}
+	public static <T> ThreadingFuture<T> runAsync(String name, Delegates.Func<T> runnable) {
+		ThreadingFuture<T> future = new ThreadingFuture<T>(runnable,name);
+		future.start();
+		return future;
+	}
 	public class AfterFinishJobArgs {
 		public IUiThreadRunner Ctrl;
 		public Delegates.Action Action;
