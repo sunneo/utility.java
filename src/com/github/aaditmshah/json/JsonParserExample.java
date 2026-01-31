@@ -4,9 +4,9 @@ import java.util.List;
 
 import com.github.aaditmshah.Grammar;
 import com.github.aaditmshah.Grammar.ParseResult;
-import com.github.aaditmshah.Grammar.ParseState;
-import com.github.aaditmshah.Grammar.Parser;
 import com.github.aaditmshah.Lexer;
+
+import static com.github.aaditmshah.Grammar.symbols;
 
 /**
  * Example demonstrating the usage of Lexer and Grammar to parse JSON into AST.
@@ -14,7 +14,7 @@ import com.github.aaditmshah.Lexer;
  * <p>This example shows:</p>
  * <ul>
  *   <li>Creating a flex-like Lexer with addRule() and lambda handlers</li>
- *   <li>Creating a Parsec-like Grammar with parser combinators</li>
+ *   <li>Creating a bison-like Grammar with production rules and semantic actions</li>
  *   <li>Parsing JSON strings into AST nodes</li>
  *   <li>Navigating and manipulating the AST</li>
  * </ul>
@@ -27,10 +27,10 @@ public class JsonParserExample {
 		// Example 1: Basic JSON parsing
 		example1_BasicParsing();
 		
-		// Example 2: Lexer demonstration
+		// Example 2: Lexer demonstration (flex-like)
 		example2_LexerDemo();
 		
-		// Example 3: Grammar combinators
+		// Example 3: Grammar with production rules (bison-like)
 		example3_GrammarDemo();
 		
 		// Example 4: Complex JSON
@@ -38,6 +38,9 @@ public class JsonParserExample {
 		
 		// Example 5: Error handling
 		example5_ErrorHandling();
+		
+		// Example 6: Show generated grammar in bison format
+		example6_ShowGrammar();
 	}
 	
 	/**
@@ -73,15 +76,19 @@ public class JsonParserExample {
 	}
 	
 	/**
-	 * Example 2: Lexer demonstration
+	 * Example 2: Lexer demonstration (flex-like)
 	 */
 	private static void example2_LexerDemo() {
-		System.out.println("--- Example 2: Lexer Demonstration ---");
+		System.out.println("--- Example 2: Lexer Demonstration (flex-like) ---");
 		
 		// Create a custom lexer for arithmetic expressions
 		Lexer lexer = new Lexer();
 		
 		// Define token rules using lambda expressions (flex-like pattern)
+		// This is similar to flex rules:
+		//   [0-9]+    { return NUMBER; }
+		//   "+"       { return PLUS; }
+		//   etc.
 		lexer.addRule("\\d+", (lex, match) -> "NUMBER")
 		     .addRule("\\+", (lex, match) -> "PLUS")
 		     .addRule("-", (lex, match) -> "MINUS")
@@ -106,49 +113,77 @@ public class JsonParserExample {
 	}
 	
 	/**
-	 * Example 3: Grammar combinators demonstration
+	 * Example 3: Grammar with production rules (bison-like)
 	 */
 	private static void example3_GrammarDemo() {
-		System.out.println("--- Example 3: Grammar Combinators ---");
+		System.out.println("--- Example 3: Grammar with Production Rules (bison-like) ---");
 		
-		// Create lexer for simple key-value pairs: key = value
+		// Create lexer for simple calculator
 		Lexer lexer = new Lexer();
-		lexer.addRule("[a-zA-Z_][a-zA-Z0-9_]*", (lex, match) -> "ID")
-		     .addRule("=", (lex, match) -> "EQUALS")
-		     .addRule("\"[^\"]*\"", (lex, match) -> "STRING")
-		     .addRule("\\d+", (lex, match) -> "NUMBER")
+		lexer.addRule("\\d+", (lex, match) -> "NUMBER")
+		     .addRule("\\+", (lex, match) -> "PLUS")
+		     .addRule("-", (lex, match) -> "MINUS")
 		     .addRule("\\s+", (lex, match) -> null);
 		
-		String input = "name = \"Alice\"";
+		// Create grammar using bison-style rules
+		// This is similar to:
+		//   %token NUMBER PLUS MINUS
+		//   %%
+		//   expr : expr PLUS term  { $$ = $1 + $3; }
+		//        | term            { $$ = $1; }
+		//        ;
+		//   term : NUMBER          { $$ = atoi($1); }
+		//        ;
+		
+		Grammar grammar = new Grammar();
+		
+		// Declare terminals
+		grammar.token("NUMBER", "PLUS", "MINUS");
+		
+		// Set start symbol
+		grammar.start("expr");
+		
+		// expr : expr PLUS term { $$ = $1 + $3; }
+		grammar.rule("expr", symbols("expr", "PLUS", "term"), vals -> {
+			int left = (Integer) vals[0];
+			int right = (Integer) vals[2];
+			return left + right;
+		});
+		
+		// expr : expr MINUS term { $$ = $1 - $3; }
+		grammar.rule("expr", symbols("expr", "MINUS", "term"), vals -> {
+			int left = (Integer) vals[0];
+			int right = (Integer) vals[2];
+			return left - right;
+		});
+		
+		// expr : term { $$ = $1; }
+		grammar.rule("expr", symbols("term"), vals -> vals[0]);
+		
+		// term : NUMBER { $$ = atoi($1); }
+		grammar.rule("term", symbols("NUMBER"), vals -> {
+			Lexer.Token tok = (Lexer.Token) vals[0];
+			return Integer.parseInt(tok.value);
+		});
+		
+		// Parse expression
+		String input = "3 + 4 - 2";
 		System.out.println("Parsing: " + input);
 		
 		lexer.setInput(input);
 		List<Lexer.Token> tokens = lexer.tokenize();
 		
-		// Create grammar
-		Grammar grammar = new Grammar();
-		
-		// Define parsers using combinators (Parsec-like pattern)
-		Parser<Lexer.Token> idParser = grammar.token("ID");
-		Parser<Lexer.Token> equalsParser = grammar.token("EQUALS");
-		Parser<Lexer.Token> valueParser = grammar.oneOf("STRING", "NUMBER");
-		
-		// Combine parsers: ID = VALUE
-		Parser<String> assignmentParser = grammar.sequence(idParser, equalsParser, valueParser)
-			.map(results -> {
-				Lexer.Token id = (Lexer.Token) results.get(0);
-				Lexer.Token value = (Lexer.Token) results.get(2);
-				return id.value + " -> " + value.value;
-			});
-		
-		// Parse
-		ParseResult<String> result = assignmentParser.parse(new ParseState(tokens));
+		ParseResult result = grammar.parse(tokens);
 		
 		if (result.isSuccess()) {
-			System.out.println("Parse result: " + result.getValue());
+			System.out.println("Result: " + result.getValue());
 		} else {
 			System.out.println("Parse failed: " + result.getError());
 		}
+		
+		// Print the grammar in bison format
+		System.out.println("\nGenerated grammar:");
+		System.out.println(grammar.toGrammarString());
 		
 		System.out.println();
 	}
@@ -229,5 +264,15 @@ public class JsonParserExample {
 		}
 		
 		System.out.println();
+	}
+	
+	/**
+	 * Example 6: Show generated grammar in bison format
+	 */
+	private static void example6_ShowGrammar() {
+		System.out.println("--- Example 6: JSON Grammar in Bison Format ---");
+		
+		JsonParser parser = new JsonParser();
+		System.out.println(parser.getGrammarString());
 	}
 }

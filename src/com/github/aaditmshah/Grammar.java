@@ -1,610 +1,572 @@
 package com.github.aaditmshah;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
+import java.util.Stack;
+import java.util.Vector;
 
 import com.example.sharp.Delegates;
 
 /**
- * A Parsec-like parser combinator library for Java using lambdas.
+ * A bison/byacc-like grammar parser for Java that allows defining grammar rules
+ * with semantic actions using lambdas.
  * 
- * <p>This class provides combinators to build parsers that can parse token streams
- * produced by the Lexer and construct AST nodes.</p>
+ * <p>This class provides a way to define grammar rules similar to bison/yacc:</p>
+ * <ul>
+ *   <li>%token declarations for terminal symbols</li>
+ *   <li>%left, %right, %nonassoc for operator precedence</li>
+ *   <li>Production rules with semantic actions</li>
+ * </ul>
  * 
  * <p>Example usage:</p>
  * <pre>{@code
  * Grammar grammar = new Grammar();
  * 
- * // Define parsers using combinators
- * Parser<String> number = grammar.token("NUMBER");
- * Parser<String> plus = grammar.token("PLUS");
+ * // Define tokens (terminals)
+ * grammar.token("NUMBER", "PLUS", "MINUS", "MULTIPLY", "DIVIDE", "LPAREN", "RPAREN");
  * 
- * Parser<ASTNode> expr = grammar.sequence(
- *     number,
- *     plus, 
- *     number
- * ).map(results -> new AddNode(results.get(0), results.get(2)));
+ * // Define precedence (lower = lower precedence)
+ * grammar.left(1, "PLUS", "MINUS");
+ * grammar.left(2, "MULTIPLY", "DIVIDE");
  * 
- * // Parse tokens
- * List<Lexer.Token> tokens = lexer.tokenize();
- * ParseResult<ASTNode> result = expr.parse(new ParseState(tokens));
+ * // Define grammar rules with semantic actions
+ * grammar.rule("expr", symbols("expr", "PLUS", "expr"), (vals) -> {
+ *     return ((Integer)vals[0]) + ((Integer)vals[2]);
+ * });
+ * 
+ * grammar.rule("expr", symbols("expr", "MINUS", "expr"), (vals) -> {
+ *     return ((Integer)vals[0]) - ((Integer)vals[2]);
+ * });
+ * 
+ * grammar.rule("expr", symbols("NUMBER"), (vals) -> {
+ *     Lexer.Token tok = (Lexer.Token) vals[0];
+ *     return Integer.parseInt(tok.value);
+ * });
+ * 
+ * // Set start symbol and parse
+ * grammar.start("expr");
+ * Object result = grammar.parse(tokens);
  * }</pre>
  */
 public class Grammar {
 	
 	/**
-	 * Result of a parse operation
+	 * Associativity types for operator precedence
 	 */
-	public static class ParseResult<T> {
-		private final T value;
-		private final ParseState state;
+	public enum Associativity {
+		LEFT,
+		RIGHT,
+		NONASSOC
+	}
+	
+	/**
+	 * Represents a grammar symbol (terminal or non-terminal)
+	 */
+	public static class Symbol {
+		public final String name;
+		public final boolean isTerminal;
+		
+		public Symbol(String name, boolean isTerminal) {
+			this.name = name;
+			this.isTerminal = isTerminal;
+		}
+		
+		@Override
+		public String toString() {
+			return name;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (obj instanceof Symbol) {
+				return name.equals(((Symbol) obj).name);
+			}
+			return false;
+		}
+		
+		@Override
+		public int hashCode() {
+			return name.hashCode();
+		}
+	}
+	
+	/**
+	 * Represents a production rule with semantic action
+	 */
+	public static class Production {
+		public final String lhs;           // Left-hand side (non-terminal)
+		public final String[] rhs;         // Right-hand side symbols
+		public final Delegates.Func1<Object[], Object> action;  // Semantic action
+		public final int precedence;       // Precedence level (0 = default)
+		
+		public Production(String lhs, String[] rhs, Delegates.Func1<Object[], Object> action) {
+			this(lhs, rhs, action, 0);
+		}
+		
+		public Production(String lhs, String[] rhs, Delegates.Func1<Object[], Object> action, int precedence) {
+			this.lhs = lhs;
+			this.rhs = rhs;
+			this.action = action;
+			this.precedence = precedence;
+		}
+		
+		@Override
+		public String toString() {
+			return lhs + " -> " + String.join(" ", rhs);
+		}
+	}
+	
+	/**
+	 * Represents precedence information for a token
+	 */
+	public static class PrecedenceInfo {
+		public final int level;
+		public final Associativity associativity;
+		
+		public PrecedenceInfo(int level, Associativity associativity) {
+			this.level = level;
+			this.associativity = associativity;
+		}
+	}
+	
+	/**
+	 * Parse result containing value or error
+	 */
+	public static class ParseResult {
+		private final Object value;
 		private final boolean success;
 		private final String error;
+		private final int errorPosition;
 		
-		private ParseResult(T value, ParseState state, boolean success, String error) {
+		private ParseResult(Object value, boolean success, String error, int errorPosition) {
 			this.value = value;
-			this.state = state;
 			this.success = success;
 			this.error = error;
+			this.errorPosition = errorPosition;
 		}
 		
-		public static <T> ParseResult<T> success(T value, ParseState state) {
-			return new ParseResult<>(value, state, true, null);
+		public static ParseResult success(Object value) {
+			return new ParseResult(value, true, null, -1);
 		}
 		
-		public static <T> ParseResult<T> failure(String error, ParseState state) {
-			return new ParseResult<>(null, state, false, error);
+		public static ParseResult failure(String error, int position) {
+			return new ParseResult(null, false, error, position);
 		}
 		
-		public boolean isSuccess() {
-			return success;
-		}
-		
-		public boolean isFailure() {
-			return !success;
-		}
-		
-		public T getValue() {
-			return value;
-		}
-		
-		public ParseState getState() {
-			return state;
-		}
-		
-		public String getError() {
-			return error;
-		}
+		public boolean isSuccess() { return success; }
+		public boolean isFailure() { return !success; }
+		public Object getValue() { return value; }
+		public String getError() { return error; }
+		public int getErrorPosition() { return errorPosition; }
 		
 		@Override
 		public String toString() {
 			if (success) {
 				return "Success(" + value + ")";
 			} else {
-				return "Failure(" + error + ")";
+				return "Failure(" + error + " at position " + errorPosition + ")";
 			}
 		}
 	}
 	
+	// Grammar definitions
+	private final Map<String, Boolean> terminals = new HashMap<>();
+	private final Map<String, PrecedenceInfo> precedence = new HashMap<>();
+	private final List<Production> productions = new ArrayList<>();
+	private final Map<String, List<Production>> productionsByLhs = new HashMap<>();
+	private String startSymbol = null;
+	
+	// Parser state
+	private List<Lexer.Token> tokens;
+	private int position;
+	private final Map<String, Map<Integer, Object>> memoTable = new HashMap<>();
+	
+	public Grammar() {
+	}
+	
 	/**
-	 * Parse state tracking position in token stream
+	 * Declare terminal symbols (tokens)
+	 * Equivalent to: %token TOKEN1 TOKEN2 ...
 	 */
-	public static class ParseState {
-		private final List<Lexer.Token> tokens;
-		private final int position;
-		
-		public ParseState(List<Lexer.Token> tokens) {
-			this(tokens, 0);
+	public Grammar token(String... tokenNames) {
+		for (String name : tokenNames) {
+			terminals.put(name, true);
+		}
+		return this;
+	}
+	
+	/**
+	 * Declare left-associative operators with precedence level
+	 * Equivalent to: %left TOKEN1 TOKEN2 ...
+	 */
+	public Grammar left(int level, String... tokenNames) {
+		for (String name : tokenNames) {
+			precedence.put(name, new PrecedenceInfo(level, Associativity.LEFT));
+		}
+		return this;
+	}
+	
+	/**
+	 * Declare right-associative operators with precedence level
+	 * Equivalent to: %right TOKEN1 TOKEN2 ...
+	 */
+	public Grammar right(int level, String... tokenNames) {
+		for (String name : tokenNames) {
+			precedence.put(name, new PrecedenceInfo(level, Associativity.RIGHT));
+		}
+		return this;
+	}
+	
+	/**
+	 * Declare non-associative operators with precedence level
+	 * Equivalent to: %nonassoc TOKEN1 TOKEN2 ...
+	 */
+	public Grammar nonassoc(int level, String... tokenNames) {
+		for (String name : tokenNames) {
+			precedence.put(name, new PrecedenceInfo(level, Associativity.NONASSOC));
+		}
+		return this;
+	}
+	
+	/**
+	 * Helper method to create symbol array for rule definition
+	 */
+	public static String[] symbols(String... symbols) {
+		return symbols;
+	}
+	
+	/**
+	 * Add a production rule with semantic action
+	 * Equivalent to: lhs : rhs1 rhs2 ... { action }
+	 * 
+	 * @param lhs Left-hand side non-terminal
+	 * @param rhs Right-hand side symbols
+	 * @param action Semantic action: (Object[] values) -> result
+	 * @return this grammar for chaining
+	 */
+	public Grammar rule(String lhs, String[] rhs, Delegates.Func1<Object[], Object> action) {
+		Production prod = new Production(lhs, rhs, action);
+		productions.add(prod);
+		productionsByLhs.computeIfAbsent(lhs, k -> new ArrayList<>()).add(prod);
+		return this;
+	}
+	
+	/**
+	 * Add a production rule without semantic action (returns first symbol value)
+	 */
+	public Grammar rule(String lhs, String[] rhs) {
+		return rule(lhs, rhs, vals -> vals.length > 0 ? vals[0] : null);
+	}
+	
+	/**
+	 * Add an empty production (epsilon rule)
+	 * Equivalent to: lhs : /* empty */
+	 */
+	public Grammar empty(String lhs, Delegates.Func1<Object[], Object> action) {
+		return rule(lhs, new String[0], action);
+	}
+	
+	/**
+	 * Add an empty production that returns null
+	 */
+	public Grammar empty(String lhs) {
+		return empty(lhs, vals -> null);
+	}
+	
+	/**
+	 * Set the start symbol
+	 * Equivalent to: %start symbol
+	 */
+	public Grammar start(String symbol) {
+		this.startSymbol = symbol;
+		return this;
+	}
+	
+	/**
+	 * Check if a symbol is a terminal
+	 */
+	public boolean isTerminal(String symbol) {
+		return terminals.containsKey(symbol);
+	}
+	
+	/**
+	 * Get the precedence of a symbol
+	 */
+	public PrecedenceInfo getPrecedence(String symbol) {
+		return precedence.get(symbol);
+	}
+	
+	/**
+	 * Parse the token stream using the defined grammar
+	 * Uses a recursive descent parser with memoization (Packrat parsing)
+	 * 
+	 * @param tokenList List of tokens from the lexer
+	 * @return Parse result
+	 */
+	public ParseResult parse(List<Lexer.Token> tokenList) {
+		if (startSymbol == null) {
+			if (productionsByLhs.isEmpty()) {
+				return ParseResult.failure("No grammar rules defined", 0);
+			}
+			// Use first production's LHS as start symbol
+			startSymbol = productions.get(0).lhs;
 		}
 		
-		public ParseState(List<Lexer.Token> tokens, int position) {
-			this.tokens = tokens;
+		this.tokens = tokenList;
+		this.position = 0;
+		this.memoTable.clear();
+		
+		try {
+			Object result = parseSymbol(startSymbol);
+			
+			// Check if all input consumed
+			if (position < tokens.size()) {
+				Lexer.Token remaining = tokens.get(position);
+				return ParseResult.failure("Unexpected token: " + remaining.type + " at line " + remaining.line, position);
+			}
+			
+			return ParseResult.success(result);
+		} catch (ParseException e) {
+			return ParseResult.failure(e.getMessage(), e.position);
+		}
+	}
+	
+	/**
+	 * Parse a symbol (terminal or non-terminal)
+	 */
+	private Object parseSymbol(String symbol) throws ParseException {
+		if (isTerminal(symbol)) {
+			return parseTerminal(symbol);
+		} else {
+			return parseNonTerminal(symbol);
+		}
+	}
+	
+	/**
+	 * Parse a terminal symbol (match a token)
+	 */
+	private Lexer.Token parseTerminal(String symbol) throws ParseException {
+		if (position >= tokens.size()) {
+			throw new ParseException("Expected " + symbol + " but reached end of input", position);
+		}
+		
+		Lexer.Token token = tokens.get(position);
+		if (token.type.equals(symbol)) {
+			position++;
+			return token;
+		}
+		
+		throw new ParseException("Expected " + symbol + " but got " + token.type + " at line " + token.line, position);
+	}
+	
+	/**
+	 * Parse a non-terminal symbol by trying all applicable productions
+	 */
+	private Object parseNonTerminal(String symbol) throws ParseException {
+		List<Production> prods = productionsByLhs.get(symbol);
+		if (prods == null || prods.isEmpty()) {
+			throw new ParseException("No production rules for: " + symbol, position);
+		}
+		
+		// Check memoization
+		String memoKey = symbol;
+		if (memoTable.containsKey(memoKey) && memoTable.get(memoKey).containsKey(position)) {
+			Object cached = memoTable.get(memoKey).get(position);
+			if (cached instanceof MemoFailure) {
+				throw new ParseException(((MemoFailure) cached).message, position);
+			}
+			return cached;
+		}
+		
+		int startPos = position;
+		ParseException lastError = null;
+		
+		// Try each production in order
+		for (Production prod : prods) {
+			position = startPos;  // Reset position for each alternative
+			
+			try {
+				Object result = tryProduction(prod);
+				
+				// Memoize success
+				memoTable.computeIfAbsent(memoKey, k -> new HashMap<>()).put(startPos, result);
+				return result;
+			} catch (ParseException e) {
+				lastError = e;
+				// Continue to next alternative
+			}
+		}
+		
+		// All alternatives failed
+		if (lastError != null) {
+			// Memoize failure
+			memoTable.computeIfAbsent(memoKey, k -> new HashMap<>())
+				.put(startPos, new MemoFailure(lastError.getMessage()));
+			throw lastError;
+		}
+		
+		throw new ParseException("Failed to parse: " + symbol, position);
+	}
+	
+	/**
+	 * Try to apply a single production rule
+	 */
+	private Object tryProduction(Production prod) throws ParseException {
+		Object[] values = new Object[prod.rhs.length];
+		
+		// Parse each symbol in the RHS
+		for (int i = 0; i < prod.rhs.length; i++) {
+			values[i] = parseSymbol(prod.rhs[i]);
+		}
+		
+		// Execute semantic action
+		if (prod.action != null) {
+			try {
+				return prod.action.Invoke(values);
+			} catch (Exception e) {
+				throw new ParseException("Semantic action error: " + e.getMessage(), position);
+			}
+		}
+		
+		return values.length > 0 ? values[0] : null;
+	}
+	
+	/**
+	 * Get all productions for a non-terminal
+	 */
+	public List<Production> getProductions(String lhs) {
+		return productionsByLhs.getOrDefault(lhs, new ArrayList<>());
+	}
+	
+	/**
+	 * Get all productions
+	 */
+	public List<Production> getAllProductions() {
+		return new ArrayList<>(productions);
+	}
+	
+	/**
+	 * Get all terminal symbols
+	 */
+	public List<String> getTerminals() {
+		return new ArrayList<>(terminals.keySet());
+	}
+	
+	/**
+	 * Get all non-terminal symbols
+	 */
+	public List<String> getNonTerminals() {
+		return new ArrayList<>(productionsByLhs.keySet());
+	}
+	
+	/**
+	 * Generate a string representation of the grammar
+	 */
+	public String toGrammarString() {
+		StringBuilder sb = new StringBuilder();
+		
+		// Tokens
+		if (!terminals.isEmpty()) {
+			sb.append("%token ");
+			sb.append(String.join(" ", terminals.keySet()));
+			sb.append("\n\n");
+		}
+		
+		// Precedence
+		Map<Integer, List<String>> leftPrec = new HashMap<>();
+		Map<Integer, List<String>> rightPrec = new HashMap<>();
+		Map<Integer, List<String>> nonassocPrec = new HashMap<>();
+		
+		for (Map.Entry<String, PrecedenceInfo> entry : precedence.entrySet()) {
+			PrecedenceInfo info = entry.getValue();
+			Map<Integer, List<String>> target;
+			switch (info.associativity) {
+				case LEFT: target = leftPrec; break;
+				case RIGHT: target = rightPrec; break;
+				default: target = nonassocPrec; break;
+			}
+			target.computeIfAbsent(info.level, k -> new ArrayList<>()).add(entry.getKey());
+		}
+		
+		for (int level : leftPrec.keySet()) {
+			sb.append("%left ");
+			sb.append(String.join(" ", leftPrec.get(level)));
+			sb.append("\n");
+		}
+		for (int level : rightPrec.keySet()) {
+			sb.append("%right ");
+			sb.append(String.join(" ", rightPrec.get(level)));
+			sb.append("\n");
+		}
+		for (int level : nonassocPrec.keySet()) {
+			sb.append("%nonassoc ");
+			sb.append(String.join(" ", nonassocPrec.get(level)));
+			sb.append("\n");
+		}
+		
+		if (!precedence.isEmpty()) {
+			sb.append("\n");
+		}
+		
+		// Start symbol
+		if (startSymbol != null) {
+			sb.append("%start ").append(startSymbol).append("\n\n");
+		}
+		
+		// Productions
+		sb.append("%%\n\n");
+		
+		for (String lhs : productionsByLhs.keySet()) {
+			List<Production> prods = productionsByLhs.get(lhs);
+			sb.append(lhs).append("\n");
+			
+			for (int i = 0; i < prods.size(); i++) {
+				Production prod = prods.get(i);
+				if (i == 0) {
+					sb.append("    : ");
+				} else {
+					sb.append("    | ");
+				}
+				
+				if (prod.rhs.length == 0) {
+					sb.append("/* empty */");
+				} else {
+					sb.append(String.join(" ", prod.rhs));
+				}
+				
+				sb.append(" { /* action */ }");
+				sb.append("\n");
+			}
+			sb.append("    ;\n\n");
+		}
+		
+		sb.append("%%\n");
+		
+		return sb.toString();
+	}
+	
+	/**
+	 * Internal exception for parse errors
+	 */
+	private static class ParseException extends Exception {
+		final int position;
+		
+		ParseException(String message, int position) {
+			super(message);
 			this.position = position;
 		}
+	}
+	
+	/**
+	 * Internal class for memoization of failures
+	 */
+	private static class MemoFailure {
+		final String message;
 		
-		public boolean hasMore() {
-			return position < tokens.size();
+		MemoFailure(String message) {
+			this.message = message;
 		}
-		
-		public Lexer.Token current() {
-			if (hasMore()) {
-				return tokens.get(position);
-			}
-			return null;
-		}
-		
-		public Lexer.Token peek(int offset) {
-			int idx = position + offset;
-			if (idx >= 0 && idx < tokens.size()) {
-				return tokens.get(idx);
-			}
-			return null;
-		}
-		
-		public ParseState advance() {
-			return new ParseState(tokens, position + 1);
-		}
-		
-		public ParseState advance(int count) {
-			return new ParseState(tokens, position + count);
-		}
-		
-		public int getPosition() {
-			return position;
-		}
-		
-		public List<Lexer.Token> getTokens() {
-			return tokens;
-		}
-		
-		public String getLocationInfo() {
-			Lexer.Token token = current();
-			if (token != null) {
-				return "line " + token.line + ", column " + token.column;
-			}
-			return "end of input";
-		}
-	}
-	
-	/**
-	 * Parser functional interface
-	 */
-	@FunctionalInterface
-	public interface Parser<T> {
-		ParseResult<T> parse(ParseState state);
-		
-		/**
-		 * Map the result of this parser to a new type
-		 */
-		default <R> Parser<R> map(Function<T, R> mapper) {
-			return state -> {
-				ParseResult<T> result = this.parse(state);
-				if (result.isSuccess()) {
-					return ParseResult.success(mapper.apply(result.getValue()), result.getState());
-				}
-				return ParseResult.failure(result.getError(), result.getState());
-			};
-		}
-		
-		/**
-		 * Chain this parser with another parser that depends on the result
-		 */
-		default <R> Parser<R> flatMap(Function<T, Parser<R>> mapper) {
-			return state -> {
-				ParseResult<T> result = this.parse(state);
-				if (result.isSuccess()) {
-					return mapper.apply(result.getValue()).parse(result.getState());
-				}
-				return ParseResult.failure(result.getError(), result.getState());
-			};
-		}
-		
-		/**
-		 * Try this parser, or if it fails, try the alternative
-		 */
-		default Parser<T> or(Parser<T> alternative) {
-			return state -> {
-				ParseResult<T> result = this.parse(state);
-				if (result.isSuccess()) {
-					return result;
-				}
-				return alternative.parse(state);
-			};
-		}
-		
-		/**
-		 * Make this parser optional, returning null if it fails
-		 */
-		default Parser<T> optional() {
-			return state -> {
-				ParseResult<T> result = this.parse(state);
-				if (result.isSuccess()) {
-					return result;
-				}
-				return ParseResult.success(null, state);
-			};
-		}
-	}
-	
-	/**
-	 * Create a parser that matches a specific token type
-	 */
-	public Parser<Lexer.Token> token(String type) {
-		return state -> {
-			if (state.hasMore()) {
-				Lexer.Token token = state.current();
-				if (token.type.equals(type)) {
-					return ParseResult.success(token, state.advance());
-				}
-				return ParseResult.failure("Expected " + type + " but got " + token.type + " at " + state.getLocationInfo(), state);
-			}
-			return ParseResult.failure("Expected " + type + " but reached end of input", state);
-		};
-	}
-	
-	/**
-	 * Create a parser that matches a token with specific type and value
-	 */
-	public Parser<Lexer.Token> token(String type, String value) {
-		return state -> {
-			if (state.hasMore()) {
-				Lexer.Token token = state.current();
-				if (token.type.equals(type) && token.value.equals(value)) {
-					return ParseResult.success(token, state.advance());
-				}
-				return ParseResult.failure("Expected " + type + "(" + value + ") but got " + token.type + "(" + token.value + ") at " + state.getLocationInfo(), state);
-			}
-			return ParseResult.failure("Expected " + type + "(" + value + ") but reached end of input", state);
-		};
-	}
-	
-	/**
-	 * Create a parser that matches any of the given token types
-	 */
-	public Parser<Lexer.Token> oneOf(String... types) {
-		return state -> {
-			if (state.hasMore()) {
-				Lexer.Token token = state.current();
-				for (String type : types) {
-					if (token.type.equals(type)) {
-						return ParseResult.success(token, state.advance());
-					}
-				}
-				return ParseResult.failure("Expected one of " + String.join(", ", types) + " but got " + token.type + " at " + state.getLocationInfo(), state);
-			}
-			return ParseResult.failure("Expected one of " + String.join(", ", types) + " but reached end of input", state);
-		};
-	}
-	
-	/**
-	 * Create a parser that always succeeds with the given value
-	 */
-	public <T> Parser<T> pure(T value) {
-		return state -> ParseResult.success(value, state);
-	}
-	
-	/**
-	 * Create a parser that always fails with the given message
-	 */
-	public <T> Parser<T> fail(String message) {
-		return state -> ParseResult.failure(message, state);
-	}
-	
-	/**
-	 * Sequence two parsers and return both results as a pair
-	 */
-	public <A, B> Parser<List<Object>> sequence(Parser<A> first, Parser<B> second) {
-		return state -> {
-			ParseResult<A> result1 = first.parse(state);
-			if (result1.isFailure()) {
-				return ParseResult.failure(result1.getError(), result1.getState());
-			}
-			ParseResult<B> result2 = second.parse(result1.getState());
-			if (result2.isFailure()) {
-				return ParseResult.failure(result2.getError(), result2.getState());
-			}
-			List<Object> list = new ArrayList<>();
-			list.add(result1.getValue());
-			list.add(result2.getValue());
-			return ParseResult.success(list, result2.getState());
-		};
-	}
-	
-	/**
-	 * Sequence three parsers
-	 */
-	public <A, B, C> Parser<List<Object>> sequence(Parser<A> p1, Parser<B> p2, Parser<C> p3) {
-		return state -> {
-			ParseResult<A> r1 = p1.parse(state);
-			if (r1.isFailure()) return ParseResult.failure(r1.getError(), r1.getState());
-			
-			ParseResult<B> r2 = p2.parse(r1.getState());
-			if (r2.isFailure()) return ParseResult.failure(r2.getError(), r2.getState());
-			
-			ParseResult<C> r3 = p3.parse(r2.getState());
-			if (r3.isFailure()) return ParseResult.failure(r3.getError(), r3.getState());
-			
-			List<Object> list = new ArrayList<>();
-			list.add(r1.getValue());
-			list.add(r2.getValue());
-			list.add(r3.getValue());
-			return ParseResult.success(list, r3.getState());
-		};
-	}
-	
-	/**
-	 * Sequence multiple parsers and return all results as a list
-	 */
-	@SafeVarargs
-	public final Parser<List<Object>> sequence(Parser<?>... parsers) {
-		return state -> {
-			List<Object> results = new ArrayList<>();
-			ParseState currentState = state;
-			
-			for (Parser<?> parser : parsers) {
-				ParseResult<?> result = parser.parse(currentState);
-				if (result.isFailure()) {
-					return ParseResult.failure(result.getError(), result.getState());
-				}
-				results.add(result.getValue());
-				currentState = result.getState();
-			}
-			
-			return ParseResult.success(results, currentState);
-		};
-	}
-	
-	/**
-	 * Try multiple parsers in order and return the first successful result
-	 */
-	@SafeVarargs
-	public final <T> Parser<T> choice(Parser<T>... parsers) {
-		return state -> {
-			String lastError = "No parsers provided";
-			for (Parser<T> parser : parsers) {
-				ParseResult<T> result = parser.parse(state);
-				if (result.isSuccess()) {
-					return result;
-				}
-				lastError = result.getError();
-			}
-			return ParseResult.failure(lastError, state);
-		};
-	}
-	
-	/**
-	 * Parse zero or more occurrences
-	 */
-	public <T> Parser<List<T>> many(Parser<T> parser) {
-		return state -> {
-			List<T> results = new ArrayList<>();
-			ParseState currentState = state;
-			
-			while (true) {
-				ParseResult<T> result = parser.parse(currentState);
-				if (result.isFailure()) {
-					break;
-				}
-				results.add(result.getValue());
-				currentState = result.getState();
-			}
-			
-			return ParseResult.success(results, currentState);
-		};
-	}
-	
-	/**
-	 * Parse one or more occurrences
-	 */
-	public <T> Parser<List<T>> many1(Parser<T> parser) {
-		return state -> {
-			ParseResult<T> first = parser.parse(state);
-			if (first.isFailure()) {
-				return ParseResult.failure(first.getError(), first.getState());
-			}
-			
-			List<T> results = new ArrayList<>();
-			results.add(first.getValue());
-			ParseState currentState = first.getState();
-			
-			while (true) {
-				ParseResult<T> result = parser.parse(currentState);
-				if (result.isFailure()) {
-					break;
-				}
-				results.add(result.getValue());
-				currentState = result.getState();
-			}
-			
-			return ParseResult.success(results, currentState);
-		};
-	}
-	
-	/**
-	 * Parse items separated by a separator
-	 */
-	public <T, S> Parser<List<T>> sepBy(Parser<T> item, Parser<S> separator) {
-		return state -> {
-			List<T> results = new ArrayList<>();
-			
-			ParseResult<T> first = item.parse(state);
-			if (first.isFailure()) {
-				return ParseResult.success(results, state); // Empty list is OK
-			}
-			
-			results.add(first.getValue());
-			ParseState currentState = first.getState();
-			
-			while (true) {
-				ParseResult<S> sepResult = separator.parse(currentState);
-				if (sepResult.isFailure()) {
-					break;
-				}
-				
-				ParseResult<T> itemResult = item.parse(sepResult.getState());
-				if (itemResult.isFailure()) {
-					break;
-				}
-				
-				results.add(itemResult.getValue());
-				currentState = itemResult.getState();
-			}
-			
-			return ParseResult.success(results, currentState);
-		};
-	}
-	
-	/**
-	 * Parse items separated by a separator, requiring at least one item
-	 */
-	public <T, S> Parser<List<T>> sepBy1(Parser<T> item, Parser<S> separator) {
-		return state -> {
-			List<T> results = new ArrayList<>();
-			
-			ParseResult<T> first = item.parse(state);
-			if (first.isFailure()) {
-				return ParseResult.failure(first.getError(), first.getState());
-			}
-			
-			results.add(first.getValue());
-			ParseState currentState = first.getState();
-			
-			while (true) {
-				ParseResult<S> sepResult = separator.parse(currentState);
-				if (sepResult.isFailure()) {
-					break;
-				}
-				
-				ParseResult<T> itemResult = item.parse(sepResult.getState());
-				if (itemResult.isFailure()) {
-					break;
-				}
-				
-				results.add(itemResult.getValue());
-				currentState = itemResult.getState();
-			}
-			
-			return ParseResult.success(results, currentState);
-		};
-	}
-	
-	/**
-	 * Parse content between delimiters
-	 */
-	public <L, T, R> Parser<T> between(Parser<L> left, Parser<T> content, Parser<R> right) {
-		return state -> {
-			ParseResult<L> leftResult = left.parse(state);
-			if (leftResult.isFailure()) {
-				return ParseResult.failure(leftResult.getError(), leftResult.getState());
-			}
-			
-			ParseResult<T> contentResult = content.parse(leftResult.getState());
-			if (contentResult.isFailure()) {
-				return ParseResult.failure(contentResult.getError(), contentResult.getState());
-			}
-			
-			ParseResult<R> rightResult = right.parse(contentResult.getState());
-			if (rightResult.isFailure()) {
-				return ParseResult.failure(rightResult.getError(), rightResult.getState());
-			}
-			
-			return ParseResult.success(contentResult.getValue(), rightResult.getState());
-		};
-	}
-	
-	/**
-	 * Optionally parse, returning default value on failure
-	 */
-	public <T> Parser<T> optional(Parser<T> parser, T defaultValue) {
-		return state -> {
-			ParseResult<T> result = parser.parse(state);
-			if (result.isSuccess()) {
-				return result;
-			}
-			return ParseResult.success(defaultValue, state);
-		};
-	}
-	
-	/**
-	 * Look ahead without consuming input
-	 */
-	public <T> Parser<T> lookAhead(Parser<T> parser) {
-		return state -> {
-			ParseResult<T> result = parser.parse(state);
-			if (result.isSuccess()) {
-				return ParseResult.success(result.getValue(), state); // Don't advance
-			}
-			return result;
-		};
-	}
-	
-	/**
-	 * Negative look ahead - succeed if parser fails, fail if it succeeds
-	 */
-	public <T> Parser<Void> notFollowedBy(Parser<T> parser) {
-		return state -> {
-			ParseResult<T> result = parser.parse(state);
-			if (result.isSuccess()) {
-				return ParseResult.failure("Unexpected match", state);
-			}
-			return ParseResult.success(null, state);
-		};
-	}
-	
-	/**
-	 * Parse and apply a semantic action
-	 */
-	public <T, R> Parser<R> action(Parser<T> parser, Delegates.Func1<T, R> handler) {
-		return parser.map(handler::Invoke);
-	}
-	
-	/**
-	 * Create a lazy parser (for recursive grammars)
-	 */
-	public <T> Parser<T> lazy(Delegates.Func<Parser<T>> parserSupplier) {
-		return state -> parserSupplier.Invoke().parse(state);
-	}
-	
-	/**
-	 * End of input parser
-	 */
-	public Parser<Void> eof() {
-		return state -> {
-			if (!state.hasMore()) {
-				return ParseResult.success(null, state);
-			}
-			return ParseResult.failure("Expected end of input but got " + state.current().type, state);
-		};
-	}
-	
-	/**
-	 * Label a parser with an expected name for better error messages
-	 */
-	public <T> Parser<T> label(Parser<T> parser, String expected) {
-		return state -> {
-			ParseResult<T> result = parser.parse(state);
-			if (result.isFailure()) {
-				return ParseResult.failure("Expected " + expected + " at " + state.getLocationInfo(), state);
-			}
-			return result;
-		};
-	}
-	
-	/**
-	 * Skip parser - parse but return null
-	 */
-	public <T> Parser<Void> skip(Parser<T> parser) {
-		return parser.map(v -> null);
-	}
-	
-	/**
-	 * Parse first, skip second (use first result)
-	 */
-	public <T, S> Parser<T> left(Parser<T> first, Parser<S> second) {
-		return state -> {
-			ParseResult<T> r1 = first.parse(state);
-			if (r1.isFailure()) return ParseResult.failure(r1.getError(), r1.getState());
-			
-			ParseResult<S> r2 = second.parse(r1.getState());
-			if (r2.isFailure()) return ParseResult.failure(r2.getError(), r2.getState());
-			
-			return ParseResult.success(r1.getValue(), r2.getState());
-		};
-	}
-	
-	/**
-	 * Skip first, parse second (use second result)
-	 */
-	public <T, S> Parser<S> right(Parser<T> first, Parser<S> second) {
-		return state -> {
-			ParseResult<T> r1 = first.parse(state);
-			if (r1.isFailure()) return ParseResult.failure(r1.getError(), r1.getState());
-			
-			ParseResult<S> r2 = second.parse(r1.getState());
-			if (r2.isFailure()) return ParseResult.failure(r2.getError(), r2.getState());
-			
-			return ParseResult.success(r2.getValue(), r2.getState());
-		};
 	}
 }

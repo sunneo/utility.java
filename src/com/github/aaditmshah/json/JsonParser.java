@@ -7,15 +7,59 @@ import java.util.Map;
 
 import com.github.aaditmshah.Grammar;
 import com.github.aaditmshah.Grammar.ParseResult;
-import com.github.aaditmshah.Grammar.ParseState;
-import com.github.aaditmshah.Grammar.Parser;
 import com.github.aaditmshah.Lexer;
 
+import static com.github.aaditmshah.Grammar.symbols;
+
 /**
- * JSON Parser that uses the Lexer and Grammar to parse JSON and build an AST.
+ * JSON Parser that uses the Lexer and bison-style Grammar to parse JSON and build an AST.
  * 
- * <p>This is an example of using the flex-like Lexer and Parsec-like Grammar
+ * <p>This is an example of using the flex-like Lexer and bison-like Grammar
  * to implement a complete parser for JSON.</p>
+ * 
+ * <p>The grammar for JSON in bison/yacc format:</p>
+ * <pre>
+ * %token STRING NUMBER TRUE FALSE NULL
+ * %token LBRACE RBRACE LBRACKET RBRACKET COLON COMMA
+ * 
+ * %%
+ * 
+ * value
+ *     : object
+ *     | array
+ *     | STRING    { $$ = new JsonString($1); }
+ *     | NUMBER    { $$ = new JsonNumber($1); }
+ *     | TRUE      { $$ = JsonBoolean.TRUE; }
+ *     | FALSE     { $$ = JsonBoolean.FALSE; }
+ *     | NULL      { $$ = JsonNull.INSTANCE; }
+ *     ;
+ * 
+ * object
+ *     : LBRACE RBRACE                    { $$ = new JsonObject({}); }
+ *     | LBRACE members RBRACE            { $$ = new JsonObject($2); }
+ *     ;
+ * 
+ * members
+ *     : member                           { $$ = [$1]; }
+ *     | members COMMA member             { $$ = $1.add($3); }
+ *     ;
+ * 
+ * member
+ *     : STRING COLON value               { $$ = pair($1, $3); }
+ *     ;
+ * 
+ * array
+ *     : LBRACKET RBRACKET                { $$ = new JsonArray([]); }
+ *     | LBRACKET elements RBRACKET       { $$ = new JsonArray($2); }
+ *     ;
+ * 
+ * elements
+ *     : value                            { $$ = [$1]; }
+ *     | elements COMMA value             { $$ = $1.add($3); }
+ *     ;
+ * 
+ * %%
+ * </pre>
  * 
  * <p>Example usage:</p>
  * <pre>{@code
@@ -35,7 +79,7 @@ import com.github.aaditmshah.Lexer;
  */
 public class JsonParser {
 	
-	// Token types
+	// Token types (terminals)
 	public static final String T_LBRACE = "LBRACE";       // {
 	public static final String T_RBRACE = "RBRACE";       // }
 	public static final String T_LBRACKET = "LBRACKET";   // [
@@ -51,22 +95,18 @@ public class JsonParser {
 	private final Lexer lexer;
 	private final Grammar grammar;
 	
-	// Parsers
-	private final Parser<JsonNode> valueParser;
-	
 	public JsonParser() {
 		lexer = createLexer();
-		grammar = new Grammar();
-		valueParser = createGrammar();
+		grammar = createGrammar();
 	}
 	
 	/**
-	 * Create the JSON lexer with all token rules
+	 * Create the JSON lexer with all token rules (flex-like)
 	 */
 	private Lexer createLexer() {
 		Lexer lex = new Lexer();
 		
-		// Skip whitespace
+		// Skip whitespace (return null to skip)
 		lex.addRule("\\s+", (l, m) -> null);
 		
 		// Structural characters
@@ -83,156 +123,118 @@ public class JsonParser {
 		lex.addRule("null", (l, m) -> T_NULL);
 		
 		// Number: integer or floating point, with optional exponent
-		// Regex: -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
 		lex.addRule("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?", (l, m) -> T_NUMBER);
 		
 		// String: double-quoted with escape sequences
-		// This regex handles most common escape sequences
 		lex.addRule("\"([^\"\\\\]|\\\\[\"\\\\bfnrt/]|\\\\u[0-9a-fA-F]{4})*\"", (l, m) -> T_STRING);
 		
 		return lex;
 	}
 	
 	/**
-	 * Create the JSON grammar with parser combinators
+	 * Create the JSON grammar with production rules (bison-like)
 	 */
-	private Parser<JsonNode> createGrammar() {
-		// Token parsers
-		Parser<Lexer.Token> lbrace = grammar.token(T_LBRACE);
-		Parser<Lexer.Token> rbrace = grammar.token(T_RBRACE);
-		Parser<Lexer.Token> lbracket = grammar.token(T_LBRACKET);
-		Parser<Lexer.Token> rbracket = grammar.token(T_RBRACKET);
-		Parser<Lexer.Token> colon = grammar.token(T_COLON);
-		Parser<Lexer.Token> comma = grammar.token(T_COMMA);
-		Parser<Lexer.Token> stringToken = grammar.token(T_STRING);
-		Parser<Lexer.Token> numberToken = grammar.token(T_NUMBER);
-		Parser<Lexer.Token> trueToken = grammar.token(T_TRUE);
-		Parser<Lexer.Token> falseToken = grammar.token(T_FALSE);
-		Parser<Lexer.Token> nullToken = grammar.token(T_NULL);
+	@SuppressWarnings("unchecked")
+	private Grammar createGrammar() {
+		Grammar g = new Grammar();
 		
-		// Value parsers (primitives)
-		Parser<JsonNode> stringValue = stringToken.map(t -> 
-			new JsonNode.JsonString(parseStringLiteral(t.value))
-		);
+		// Declare terminal symbols (%token)
+		g.token(T_LBRACE, T_RBRACE, T_LBRACKET, T_RBRACKET, T_COLON, T_COMMA,
+		        T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NULL);
 		
-		Parser<JsonNode> numberValue = numberToken.map(t -> 
-			new JsonNode.JsonNumber(t.value)
-		);
+		// Set start symbol
+		g.start("value");
 		
-		Parser<JsonNode> trueValue = trueToken.map(t -> 
-			JsonNode.JsonBoolean.TRUE
-		);
+		// value : object
+		g.rule("value", symbols("object"), vals -> vals[0]);
 		
-		Parser<JsonNode> falseValue = falseToken.map(t -> 
-			JsonNode.JsonBoolean.FALSE
-		);
+		// value : array
+		g.rule("value", symbols("array"), vals -> vals[0]);
 		
-		Parser<JsonNode> nullValue = nullToken.map(t -> 
-			JsonNode.JsonNull.INSTANCE
-		);
+		// value : STRING  { $$ = new JsonString($1); }
+		g.rule("value", symbols(T_STRING), vals -> {
+			Lexer.Token tok = (Lexer.Token) vals[0];
+			return new JsonNode.JsonString(parseStringLiteral(tok.value));
+		});
 		
-		// Use lazy evaluation for recursive grammar
-		Parser<JsonNode> value = grammar.lazy(() -> 
-			grammar.choice(
-				objectParser(),
-				arrayParser(),
-				stringValue,
-				numberValue,
-				trueValue,
-				falseValue,
-				nullValue
-			)
-		);
+		// value : NUMBER  { $$ = new JsonNumber($1); }
+		g.rule("value", symbols(T_NUMBER), vals -> {
+			Lexer.Token tok = (Lexer.Token) vals[0];
+			return new JsonNode.JsonNumber(tok.value);
+		});
 		
-		return value;
-	}
-	
-	/**
-	 * Create the object parser
-	 */
-	private Parser<JsonNode> objectParser() {
-		Parser<Lexer.Token> lbrace = grammar.token(T_LBRACE);
-		Parser<Lexer.Token> rbrace = grammar.token(T_RBRACE);
-		Parser<Lexer.Token> colon = grammar.token(T_COLON);
-		Parser<Lexer.Token> comma = grammar.token(T_COMMA);
-		Parser<Lexer.Token> stringToken = grammar.token(T_STRING);
+		// value : TRUE    { $$ = JsonBoolean.TRUE; }
+		g.rule("value", symbols(T_TRUE), vals -> JsonNode.JsonBoolean.TRUE);
 		
-		// Member: string : value
-		Parser<Map.Entry<String, JsonNode>> member = state -> {
-			ParseResult<Lexer.Token> keyResult = stringToken.parse(state);
-			if (keyResult.isFailure()) {
-				return ParseResult.failure(keyResult.getError(), keyResult.getState());
-			}
-			
-			ParseResult<Lexer.Token> colonResult = colon.parse(keyResult.getState());
-			if (colonResult.isFailure()) {
-				return ParseResult.failure(colonResult.getError(), colonResult.getState());
-			}
-			
-			ParseResult<JsonNode> valueResult = valueParser.parse(colonResult.getState());
-			if (valueResult.isFailure()) {
-				return ParseResult.failure(valueResult.getError(), valueResult.getState());
-			}
-			
-			String key = parseStringLiteral(keyResult.getValue().value);
-			Map.Entry<String, JsonNode> entry = new java.util.AbstractMap.SimpleEntry<>(key, valueResult.getValue());
-			return ParseResult.success(entry, valueResult.getState());
-		};
+		// value : FALSE   { $$ = JsonBoolean.FALSE; }
+		g.rule("value", symbols(T_FALSE), vals -> JsonNode.JsonBoolean.FALSE);
 		
-		// Members: member (, member)*
-		Parser<List<Map.Entry<String, JsonNode>>> members = grammar.sepBy(member, comma);
+		// value : NULL    { $$ = JsonNull.INSTANCE; }
+		g.rule("value", symbols(T_NULL), vals -> JsonNode.JsonNull.INSTANCE);
 		
-		// Object: { members? }
-		return state -> {
-			ParseResult<Lexer.Token> lbraceResult = lbrace.parse(state);
-			if (lbraceResult.isFailure()) {
-				return ParseResult.failure(lbraceResult.getError(), lbraceResult.getState());
-			}
-			
-			ParseResult<List<Map.Entry<String, JsonNode>>> membersResult = members.parse(lbraceResult.getState());
-			// members can be empty, so we check the state
-			
-			ParseResult<Lexer.Token> rbraceResult = rbrace.parse(membersResult.getState());
-			if (rbraceResult.isFailure()) {
-				return ParseResult.failure(rbraceResult.getError(), rbraceResult.getState());
-			}
-			
+		// object : LBRACE RBRACE  { $$ = new JsonObject({}); }
+		g.rule("object", symbols(T_LBRACE, T_RBRACE), vals -> {
+			return new JsonNode.JsonObject(new LinkedHashMap<>());
+		});
+		
+		// object : LBRACE members RBRACE  { $$ = new JsonObject($2); }
+		g.rule("object", symbols(T_LBRACE, "members", T_RBRACE), vals -> {
+			List<Map.Entry<String, JsonNode>> members = (List<Map.Entry<String, JsonNode>>) vals[1];
 			Map<String, JsonNode> map = new LinkedHashMap<>();
-			for (Map.Entry<String, JsonNode> entry : membersResult.getValue()) {
+			for (Map.Entry<String, JsonNode> entry : members) {
 				map.put(entry.getKey(), entry.getValue());
 			}
-			
-			return ParseResult.success(new JsonNode.JsonObject(map), rbraceResult.getState());
-		};
-	}
-	
-	/**
-	 * Create the array parser
-	 */
-	private Parser<JsonNode> arrayParser() {
-		Parser<Lexer.Token> lbracket = grammar.token(T_LBRACKET);
-		Parser<Lexer.Token> rbracket = grammar.token(T_RBRACKET);
-		Parser<Lexer.Token> comma = grammar.token(T_COMMA);
+			return new JsonNode.JsonObject(map);
+		});
 		
-		// Elements: value (, value)*
-		Parser<List<JsonNode>> elements = grammar.sepBy(valueParser, comma);
+		// members : member  { $$ = [$1]; }
+		g.rule("members", symbols("member"), vals -> {
+			List<Map.Entry<String, JsonNode>> list = new ArrayList<>();
+			list.add((Map.Entry<String, JsonNode>) vals[0]);
+			return list;
+		});
 		
-		// Array: [ elements? ]
-		return state -> {
-			ParseResult<Lexer.Token> lbracketResult = lbracket.parse(state);
-			if (lbracketResult.isFailure()) {
-				return ParseResult.failure(lbracketResult.getError(), lbracketResult.getState());
-			}
-			
-			ParseResult<List<JsonNode>> elementsResult = elements.parse(lbracketResult.getState());
-			
-			ParseResult<Lexer.Token> rbracketResult = rbracket.parse(elementsResult.getState());
-			if (rbracketResult.isFailure()) {
-				return ParseResult.failure(rbracketResult.getError(), rbracketResult.getState());
-			}
-			
-			return ParseResult.success(new JsonNode.JsonArray(elementsResult.getValue()), rbracketResult.getState());
-		};
+		// members : members COMMA member  { $1.add($3); $$ = $1; }
+		g.rule("members", symbols("members", T_COMMA, "member"), vals -> {
+			List<Map.Entry<String, JsonNode>> list = (List<Map.Entry<String, JsonNode>>) vals[0];
+			list.add((Map.Entry<String, JsonNode>) vals[2]);
+			return list;
+		});
+		
+		// member : STRING COLON value  { $$ = pair($1, $3); }
+		g.rule("member", symbols(T_STRING, T_COLON, "value"), vals -> {
+			Lexer.Token keyToken = (Lexer.Token) vals[0];
+			JsonNode value = (JsonNode) vals[2];
+			String key = parseStringLiteral(keyToken.value);
+			return new java.util.AbstractMap.SimpleEntry<>(key, value);
+		});
+		
+		// array : LBRACKET RBRACKET  { $$ = new JsonArray([]); }
+		g.rule("array", symbols(T_LBRACKET, T_RBRACKET), vals -> {
+			return new JsonNode.JsonArray(new ArrayList<>());
+		});
+		
+		// array : LBRACKET elements RBRACKET  { $$ = new JsonArray($2); }
+		g.rule("array", symbols(T_LBRACKET, "elements", T_RBRACKET), vals -> {
+			List<JsonNode> elements = (List<JsonNode>) vals[1];
+			return new JsonNode.JsonArray(elements);
+		});
+		
+		// elements : value  { $$ = [$1]; }
+		g.rule("elements", symbols("value"), vals -> {
+			List<JsonNode> list = new ArrayList<>();
+			list.add((JsonNode) vals[0]);
+			return list;
+		});
+		
+		// elements : elements COMMA value  { $1.add($3); $$ = $1; }
+		g.rule("elements", symbols("elements", T_COMMA, "value"), vals -> {
+			List<JsonNode> list = (List<JsonNode>) vals[0];
+			list.add((JsonNode) vals[2]);
+			return list;
+		});
+		
+		return g;
 	}
 	
 	/**
@@ -255,21 +257,21 @@ public class JsonParser {
 			throw new JsonParseException("Empty input");
 		}
 		
-		// Parse
-		ParseState state = new ParseState(tokens);
-		ParseResult<JsonNode> result = valueParser.parse(state);
+		// Parse using the grammar
+		ParseResult result = grammar.parse(tokens);
 		
 		if (result.isFailure()) {
 			throw new JsonParseException(result.getError());
 		}
 		
-		// Check for trailing tokens
-		if (result.getState().hasMore()) {
-			Lexer.Token extra = result.getState().current();
-			throw new JsonParseException("Unexpected token after JSON value: " + extra.type + " at line " + extra.line);
-		}
-		
-		return result.getValue();
+		return (JsonNode) result.getValue();
+	}
+	
+	/**
+	 * Get the grammar in bison/yacc format string
+	 */
+	public String getGrammarString() {
+		return grammar.toGrammarString();
 	}
 	
 	/**
