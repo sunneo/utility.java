@@ -295,7 +295,7 @@ public class JsonParser {
 					case 'r': sb.append('\r'); i += 2; break;
 					case 't': sb.append('\t'); i += 2; break;
 					case 'u':
-						if (i + 5 < content.length()) {
+						if (i + 6 <= content.length()) {
 							String hex = content.substring(i + 2, i + 6);
 							sb.append((char) Integer.parseInt(hex, 16));
 							i += 6;
