@@ -5,11 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.github.aaditmshah.BisonGrammar;
 import com.github.aaditmshah.Grammar;
-import com.github.aaditmshah.Grammar.ParseResult;
 import com.github.aaditmshah.Lexer;
 
-import static com.github.aaditmshah.Grammar.symbols;
+import static com.github.aaditmshah.BisonGrammar.symbols;
 
 /**
  * JSON Parser that uses the Lexer and bison-style Grammar to parse JSON and build an AST.
@@ -135,8 +135,8 @@ public class JsonParser {
 	 * Create the JSON grammar with production rules (bison-like)
 	 */
 	@SuppressWarnings("unchecked")
-	private Grammar createGrammar() {
-		Grammar g = new Grammar();
+	private BisonGrammar createGrammar() {
+		BisonGrammar g = new BisonGrammar();
 		
 		// Declare terminal symbols (%token)
 		g.token(T_LBRACE, T_RBRACE, T_LBRACKET, T_RBRACKET, T_COLON, T_COMMA,
@@ -258,7 +258,7 @@ public class JsonParser {
 		}
 		
 		// Parse using the grammar
-		ParseResult result = grammar.parse(tokens);
+		Grammar.ParseResult result = grammar.parse(tokens);
 		
 		if (result.isFailure()) {
 			throw new JsonParseException(result.getError());

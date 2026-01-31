@@ -299,9 +299,10 @@ class JavaGrammarGenerator:
         
         # Imports
         lines.append("import java.util.List;")
+        lines.append("import com.github.aaditmshah.BisonGrammar;")
         lines.append("import com.github.aaditmshah.Grammar;")
         lines.append("import com.github.aaditmshah.Lexer;")
-        lines.append("import static com.github.aaditmshah.Grammar.symbols;")
+        lines.append("import static com.github.aaditmshah.BisonGrammar.symbols;")
         lines.append("")
         
         # Class declaration
@@ -319,12 +320,12 @@ class JavaGrammarGenerator:
         lines.append("")
         
         # Grammar instance
-        lines.append("    private final Grammar grammar;")
+        lines.append("    private final BisonGrammar grammar;")
         lines.append("")
         
         # Constructor
         lines.append(f"    public {self.parser.class_name}() {{")
-        lines.append("        grammar = new Grammar();")
+        lines.append("        grammar = new BisonGrammar();")
         lines.append("        initGrammar();")
         lines.append("    }")
         lines.append("")
