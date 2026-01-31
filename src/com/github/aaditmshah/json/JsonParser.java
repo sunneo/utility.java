@@ -264,7 +264,12 @@ public class JsonParser {
 			throw new JsonParseException(result.getError());
 		}
 		
-		return (JsonNode) result.getValue();
+		Object value = result.getValue();
+		if (!(value instanceof JsonNode)) {
+			throw new JsonParseException("Grammar returned unexpected type: " + 
+				(value == null ? "null" : value.getClass().getName()));
+		}
+		return (JsonNode) value;
 	}
 	
 	/**
