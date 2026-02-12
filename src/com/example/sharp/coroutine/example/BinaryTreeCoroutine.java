@@ -1,12 +1,18 @@
 package com.example.sharp.coroutine.example;
 
+import com.example.sharp.Delegates;
+import com.example.sharp.annotations.Generator;
 import com.example.sharp.coroutine.Coroutine;
+import com.example.sharp.coroutine.GeneratorBuilder;
 
 import java.util.Comparator;
 import java.util.Iterator;
 
 public class BinaryTreeCoroutine {
 
+	/**
+	 * Original traversor implementation (kept for reference)
+	 */
 	public static Iterator<TreeNode<Integer, Integer>> getTravesor(Tree<Integer, Integer> tree) {
 		return new Iterator<TreeNode<Integer, Integer>>() {
 
@@ -59,6 +65,116 @@ public class BinaryTreeCoroutine {
 
 		};
 	}
+	
+	/**
+	 * Improved tree traversal using generator pattern
+	 * This converts the recursive algorithm to a generator more elegantly
+	 */
+	@Generator
+	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traverseInOrder(Tree<K, V> tree) {
+		Coroutine cor = buildInOrderTraversal(null, tree.root);
+		return cor.iterable();
+	}
+	
+	/**
+	 * Helper method to build tree traversal coroutine
+	 * Converts recursive in-order traversal to coroutine instructions
+	 */
+	private static <K, V> Coroutine buildInOrderTraversal(Coroutine current, TreeNode<K, V> node) {
+		if (node == null) {
+			return current;
+		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
+		
+		// Left subtree
+		cor.addInstruction((ctx) -> {
+			buildInOrderTraversal(ctx, node.left);
+		});
+		
+		// Current node
+		cor.addInstruction((ctx) -> {
+			ctx.yield(node);
+		});
+		
+		// Right subtree
+		cor.addInstruction((ctx) -> {
+			buildInOrderTraversal(ctx, node.right);
+		});
+		
+		cor.start();
+		return cor;
+	}
+	
+	/**
+	 * Pre-order traversal generator
+	 */
+	@Generator
+	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traversePreOrder(Tree<K, V> tree) {
+		Coroutine cor = buildPreOrderTraversal(null, tree.root);
+		return cor.iterable();
+	}
+	
+	private static <K, V> Coroutine buildPreOrderTraversal(Coroutine current, TreeNode<K, V> node) {
+		if (node == null) {
+			return current;
+		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
+		
+		// Current node first
+		cor.addInstruction((ctx) -> {
+			ctx.yield(node);
+		});
+		
+		// Left subtree
+		cor.addInstruction((ctx) -> {
+			buildPreOrderTraversal(ctx, node.left);
+		});
+		
+		// Right subtree
+		cor.addInstruction((ctx) -> {
+			buildPreOrderTraversal(ctx, node.right);
+		});
+		
+		cor.start();
+		return cor;
+	}
+	
+	/**
+	 * Post-order traversal generator
+	 */
+	@Generator
+	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traversePostOrder(Tree<K, V> tree) {
+		Coroutine cor = buildPostOrderTraversal(null, tree.root);
+		return cor.iterable();
+	}
+	
+	private static <K, V> Coroutine buildPostOrderTraversal(Coroutine current, TreeNode<K, V> node) {
+		if (node == null) {
+			return current;
+		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
+		
+		// Left subtree
+		cor.addInstruction((ctx) -> {
+			buildPostOrderTraversal(ctx, node.left);
+		});
+		
+		// Right subtree
+		cor.addInstruction((ctx) -> {
+			buildPostOrderTraversal(ctx, node.right);
+		});
+		
+		// Current node last
+		cor.addInstruction((ctx) -> {
+			ctx.yield(node);
+		});
+		
+		cor.start();
+		return cor;
+	}
 
 	static void normalTraversal(TreeNode<Integer, Integer> t) {
 		if (t == null)
@@ -74,10 +190,29 @@ public class BinaryTreeCoroutine {
 		for (int i = 0; i < seq.length; ++i) {
 			tree.set(seq[i], i);
 		}
+		
+		System.err.println("=== Traditional Recursive Traversal ===");
 		normalTraversal(tree.root);
+		
+		System.err.println("\n=== Original Coroutine Iterator ===");
 		Iterator<TreeNode<Integer, Integer>> iter = getTravesor(tree);
 		while (iter.hasNext()) {
 			System.err.printf("%s\n", iter.next());
+		}
+		
+		System.err.println("\n=== In-Order Generator ===");
+		for (TreeNode<Integer, Integer> node : traverseInOrder(tree)) {
+			System.err.printf("In-Order: %s\n", node);
+		}
+		
+		System.err.println("\n=== Pre-Order Generator ===");
+		for (TreeNode<Integer, Integer> node : traversePreOrder(tree)) {
+			System.err.printf("Pre-Order: %s\n", node);
+		}
+		
+		System.err.println("\n=== Post-Order Generator ===");
+		for (TreeNode<Integer, Integer> node : traversePostOrder(tree)) {
+			System.err.printf("Post-Order: %s\n", node);
 		}
 	}
 }
