@@ -394,48 +394,20 @@ public class Coroutine {
 	/**
 	 * If-Else conditional block
 	 * @param cond condition to evaluate
-	 * @return CompositeBlock for then branch
+	 * @return IfBlock for fluent configuration
 	 */
 	public IfBlock If(Delegates.Func<Boolean> cond) {
 		Var<Integer> endIf = new Var<>();
 		Var<Integer> elseBlock = new Var<>();
 		IfBlock ret = new IfBlock();
-		Coroutine pthat = this.push();
-		ret.parent = pthat;
+		ret.parent = this;  // Don't push, use same coroutine
 		ret.endIfPos = endIf;
 		ret.elseBlockPos = elseBlock;
+		ret.cond = cond;
 		
-		int condPos = pthat.addInstruction((cor) -> {
-			if (!cond.Invoke()) {
-				// Jump to else or end
-				if (elseBlock.get() != null) {
-					cor.jmp(elseBlock.get());
-				} else {
-					cor.jmp(endIf.get());
-				}
-			}
-		});
+		// The actual instructions will be added when then()/Else() are called
+		ret.ip = this.instructions.size();
 		
-		pthat.addInstruction((cor) -> {
-			try {
-				// Then block body
-				if (ret.thenBody != null) {
-					ret.thenBody.Invoke(cor);
-				}
-			} catch (Exception ee) {
-				Tracer.D(ee);
-				cor.stop();
-			}
-		});
-		
-		// Jump over else block after then completes
-		ret.jumpToEndPos = pthat.addInstruction((cor) -> {
-			if (endIf.get() != null) {
-				cor.jmp(endIf.get());
-			}
-		});
-		
-		ret.ip = condPos;
 		return ret;
 	}
 	
@@ -447,20 +419,61 @@ public class Coroutine {
 		Delegates.Action1<Coroutine> elseBody;
 		Var<Integer> endIfPos;
 		Var<Integer> elseBlockPos;
+		Delegates.Func<Boolean> cond;
 		int jumpToEndPos;
+		boolean instructionsAdded = false;
 		
 		/**
 		 * Define the then branch
 		 */
 		public IfBlock then(Delegates.Action1<Coroutine> thenAction) {
 			this.thenBody = thenAction;
+			if (!instructionsAdded) {
+				addInstructions();
+			}
 			return this;
+		}
+		
+		private void addInstructions() {
+			instructionsAdded = true;
+			
+			// Add condition check instruction
+			int condPos = parent.addInstruction((cor) -> {
+				if (!cond.Invoke()) {
+					// Jump to else or end
+					if (elseBlockPos.get() != null) {
+						cor.jmp(elseBlockPos.get());
+					} else if (endIfPos.get() != null) {
+						cor.jmp(endIfPos.get());
+					}
+				}
+			});
+			ip = condPos;
+			
+			// Add then body instruction
+			parent.addInstruction((cor) -> {
+				try {
+					if (thenBody != null) {
+						thenBody.Invoke(cor);
+					}
+				} catch (Exception ee) {
+					Tracer.D(ee);
+					cor.stop();
+				}
+			});
+			
+			// Jump over else block after then completes
+			jumpToEndPos = parent.addInstruction((cor) -> {
+				if (endIfPos.get() != null) {
+					cor.jmp(endIfPos.get());
+				}
+			});
 		}
 		
 		/**
 		 * Define the else branch
 		 */
-		public CompositeBlock Else(Delegates.Action1<Coroutine> elseAction) {
+		public IfBlock Else(Delegates.Action1<Coroutine> elseAction) {
 			this.elseBody = elseAction;
 			
 			// Add else block instructions

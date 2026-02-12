@@ -72,9 +72,7 @@ public class BinaryTreeCoroutine {
 	 */
 	@Generator
 	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traverseInOrder(Tree<K, V> tree) {
-		Coroutine cor = new Coroutine();
-		buildTraversal(cor, tree.root);
-		cor.start();
+		Coroutine cor = buildInOrderTraversal(null, tree.root);
 		return cor.iterable();
 	}
 	
@@ -82,15 +80,16 @@ public class BinaryTreeCoroutine {
 	 * Helper method to build tree traversal coroutine
 	 * Converts recursive in-order traversal to coroutine instructions
 	 */
-	private static <K, V> void buildTraversal(Coroutine cor, TreeNode<K, V> node) {
+	private static <K, V> Coroutine buildInOrderTraversal(Coroutine current, TreeNode<K, V> node) {
 		if (node == null) {
-			return;
+			return current;
 		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
 		
 		// Left subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine left = ctx.push();
-			buildTraversal(left, node.left);
+			buildInOrderTraversal(ctx, node.left);
 		});
 		
 		// Current node
@@ -100,9 +99,11 @@ public class BinaryTreeCoroutine {
 		
 		// Right subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine right = ctx.push();
-			buildTraversal(right, node.right);
+			buildInOrderTraversal(ctx, node.right);
 		});
+		
+		cor.start();
+		return cor;
 	}
 	
 	/**
@@ -110,16 +111,16 @@ public class BinaryTreeCoroutine {
 	 */
 	@Generator
 	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traversePreOrder(Tree<K, V> tree) {
-		Coroutine cor = new Coroutine();
-		buildPreOrderTraversal(cor, tree.root);
-		cor.start();
+		Coroutine cor = buildPreOrderTraversal(null, tree.root);
 		return cor.iterable();
 	}
 	
-	private static <K, V> void buildPreOrderTraversal(Coroutine cor, TreeNode<K, V> node) {
+	private static <K, V> Coroutine buildPreOrderTraversal(Coroutine current, TreeNode<K, V> node) {
 		if (node == null) {
-			return;
+			return current;
 		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
 		
 		// Current node first
 		cor.addInstruction((ctx) -> {
@@ -128,15 +129,16 @@ public class BinaryTreeCoroutine {
 		
 		// Left subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine left = ctx.push();
-			buildPreOrderTraversal(left, node.left);
+			buildPreOrderTraversal(ctx, node.left);
 		});
 		
 		// Right subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine right = ctx.push();
-			buildPreOrderTraversal(right, node.right);
+			buildPreOrderTraversal(ctx, node.right);
 		});
+		
+		cor.start();
+		return cor;
 	}
 	
 	/**
@@ -144,33 +146,34 @@ public class BinaryTreeCoroutine {
 	 */
 	@Generator
 	public static <K, V> Delegates.IterableEx<TreeNode<K, V>> traversePostOrder(Tree<K, V> tree) {
-		Coroutine cor = new Coroutine();
-		buildPostOrderTraversal(cor, tree.root);
-		cor.start();
+		Coroutine cor = buildPostOrderTraversal(null, tree.root);
 		return cor.iterable();
 	}
 	
-	private static <K, V> void buildPostOrderTraversal(Coroutine cor, TreeNode<K, V> node) {
+	private static <K, V> Coroutine buildPostOrderTraversal(Coroutine current, TreeNode<K, V> node) {
 		if (node == null) {
-			return;
+			return current;
 		}
+		
+		Coroutine cor = (current == null) ? new Coroutine() : current.push();
 		
 		// Left subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine left = ctx.push();
-			buildPostOrderTraversal(left, node.left);
+			buildPostOrderTraversal(ctx, node.left);
 		});
 		
 		// Right subtree
 		cor.addInstruction((ctx) -> {
-			Coroutine right = ctx.push();
-			buildPostOrderTraversal(right, node.right);
+			buildPostOrderTraversal(ctx, node.right);
 		});
 		
 		// Current node last
 		cor.addInstruction((ctx) -> {
 			ctx.yield(node);
 		});
+		
+		cor.start();
+		return cor;
 	}
 
 	static void normalTraversal(TreeNode<Integer, Integer> t) {
