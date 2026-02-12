@@ -196,26 +196,30 @@ public static Iterable<Long> counter(long start) {
 
 ## 注意事项 / Caveats
 
-### ⚠️ 变量捕获问题
+### ⚠️ 变量捕获 (Variable Capture)
 
-**错误做法:**
+由于 `YieldHelper.accept()` 已经会自动捕获值，所以实际上可以直接使用：
+
+**简化写法（推荐）:**
 ```java
 return YieldHelper.generate((yield) -> {
     for (int i = 0; i < 10; i++) {
-        yield.accept(i);  // ❌ i 的值在指令执行时可能不正确
+        yield.accept(i);  // ✅ 自动捕获，安全！
     }
 });
 ```
 
-**正确做法:**
+**显式捕获（更清晰）:**
 ```java
 return YieldHelper.generate((yield) -> {
     for (int i = 0; i < 10; i++) {
         final int value = i;
-        yield.accept(value);  // ✅ 捕获 final 变量
+        yield.accept(value);  // ✅ 显式捕获，代码意图更明确
     }
 });
 ```
+
+两种方式都可以，推荐显式捕获以让代码意图更明确。
 
 ### ⚠️ 何时使用高级方式
 

@@ -392,7 +392,12 @@ public class Coroutine {
 		return ret;
 	}
 	/**
-	 * If-Else conditional block
+	 * If-Else conditional block.
+	 * 
+	 * Note: Uses the same coroutine context rather than pushing a new one.
+	 * This allows if-else blocks to work properly within loop bodies where
+	 * a push() would create unnecessary nesting and complicate control flow.
+	 * 
 	 * @param cond condition to evaluate
 	 * @return IfBlock for fluent configuration
 	 */

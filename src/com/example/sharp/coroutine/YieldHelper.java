@@ -44,10 +44,15 @@ public class YieldHelper {
         
         /**
          * Yield a value - call this instead of coroutine.yield()
-         * We need to capture the value immediately to avoid variable capture issues
+         * 
+         * Note: The value is captured immediately when this method is called.
+         * This ensures the correct value is yielded even if the source variable
+         * changes later (though in practice, the lambda that contains this call
+         * is executed immediately during generator construction).
          */
         public void accept(T value) {
-            final T capturedValue = value;  // Ensure value is captured
+            // Explicitly capture to ensure the value at call time is used
+            final T capturedValue = value;
             coroutine.addInstruction((cor) -> cor.yield(capturedValue));
         }
         
@@ -94,10 +99,18 @@ public class YieldHelper {
             });
         }
         
-        // Add a final no-op instruction to ensure last yield is properly returned
-        // This works around the iterator implementation that pre-executes to next yield
+        // Add a final no-op instruction to ensure last yield is properly returned.
+        // 
+        // Context: The Coroutine.iterator() implementation pre-executes to the next
+        // yield or stop after returning each value (see Coroutine.iterator().next() 
+        // line ~100). This means without this no-op, the last yielded value would
+        // be consumed by the pre-execution but never returned because hasNext()
+        // would return false before next() could be called again.
+        //
+        // This no-op serves as a "sentinel" instruction that allows the iterator
+        // to properly return the last yielded value before stopping.
         cor.addInstruction((c) -> {
-            // No-op to ensure last yield value is returned
+            // No-op sentinel instruction
         });
         
         cor.start();
