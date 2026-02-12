@@ -392,6 +392,120 @@ public class Coroutine {
 		return ret;
 	}
 	/**
+	 * If-Else conditional block
+	 * @param cond condition to evaluate
+	 * @return CompositeBlock for then branch
+	 */
+	public IfBlock If(Delegates.Func<Boolean> cond) {
+		Var<Integer> endIf = new Var<>();
+		Var<Integer> elseBlock = new Var<>();
+		IfBlock ret = new IfBlock();
+		Coroutine pthat = this.push();
+		ret.parent = pthat;
+		ret.endIfPos = endIf;
+		ret.elseBlockPos = elseBlock;
+		
+		int condPos = pthat.addInstruction((cor) -> {
+			if (!cond.Invoke()) {
+				// Jump to else or end
+				if (elseBlock.get() != null) {
+					cor.jmp(elseBlock.get());
+				} else {
+					cor.jmp(endIf.get());
+				}
+			}
+		});
+		
+		pthat.addInstruction((cor) -> {
+			try {
+				// Then block body
+				if (ret.thenBody != null) {
+					ret.thenBody.Invoke(cor);
+				}
+			} catch (Exception ee) {
+				Tracer.D(ee);
+				cor.stop();
+			}
+		});
+		
+		// Jump over else block after then completes
+		ret.jumpToEndPos = pthat.addInstruction((cor) -> {
+			if (endIf.get() != null) {
+				cor.jmp(endIf.get());
+			}
+		});
+		
+		ret.ip = condPos;
+		return ret;
+	}
+	
+	/**
+	 * If block with then and optional else branches
+	 */
+	public static class IfBlock extends CompositeBlock {
+		Delegates.Action1<Coroutine> thenBody;
+		Delegates.Action1<Coroutine> elseBody;
+		Var<Integer> endIfPos;
+		Var<Integer> elseBlockPos;
+		int jumpToEndPos;
+		
+		/**
+		 * Define the then branch
+		 */
+		public IfBlock then(Delegates.Action1<Coroutine> thenAction) {
+			this.thenBody = thenAction;
+			return this;
+		}
+		
+		/**
+		 * Define the else branch
+		 */
+		public CompositeBlock Else(Delegates.Action1<Coroutine> elseAction) {
+			this.elseBody = elseAction;
+			
+			// Add else block instructions
+			int elseStart = parent.addInstruction((cor) -> {
+				try {
+					if (elseBody != null) {
+						elseBody.Invoke(cor);
+					}
+				} catch (Exception ee) {
+					Tracer.D(ee);
+					cor.stop();
+				}
+			});
+			elseBlockPos.set(elseStart);
+			
+			// End of if-else
+			int endPos = parent.addInstruction((cor) -> {
+				// No-op, just a marker
+			});
+			endIfPos.set(endPos);
+			
+			return this;
+		}
+		
+		@Override
+		public CompositeBlock run(Delegates.Action1<Coroutine> ins) {
+			return then(ins).finishIf();
+		}
+		
+		/**
+		 * Finish the if block without else
+		 */
+		private IfBlock finishIf() {
+			if (elseBlockPos.get() == null) {
+				// No else block, set end position
+				int endPos = parent.addInstruction((cor) -> {
+					// No-op, just a marker
+				});
+				endIfPos.set(endPos);
+			}
+			return this;
+		}
+	}
+	
+	/**
 	 * add labeled instruction
 	 *
 	 * @param label label to this instruction, can be used to jmp, it will replace
